@@ -4,7 +4,7 @@ use std::sync::Once;
 
 static INIT_LOG_FILE: Once = Once::new();
 
-const LOG_PATH: &str = "/sdcard/Download/videofinder_log.txt";
+const LOG_PATH: &str = "/sdcard/Download/videofinder_logs.txt";
 
 fn init_log_file() {
     // Truncate the file once at app start

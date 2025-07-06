@@ -1,9 +1,15 @@
 import { Button, VerticalBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
+
+    default-font-size: 20px;
+
     in-out property <int> counter: 42;
     callback request-increase-value();
     VerticalBox {
+        Text {
+            text: "Videofinder";
+        }
         Text {
             text: "Counter: \{root.counter}";
         }

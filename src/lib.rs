@@ -10,20 +10,10 @@ slint::include_modules!();
 #[unsafe(no_mangle)]
 fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
 
+    log!("videofinder started");
     slint::android::init(app).unwrap();
 
-    log!("slint::android initialized!");
-
-    /*
-    slint::slint!{
-        export component MainWindow inherits Window {
-            Text { text: "Hello World"; }
-        }
-    }
-    log!("slint code run");
-
-    MainWindow::new().unwrap().run().unwrap();
-    */
+    log!("slint::android initialized");
 
     let ui = AppWindow::new()?;
 
