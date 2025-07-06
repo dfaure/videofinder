@@ -9,6 +9,9 @@ edition = "2021"
 chrono = "0.4.41"
 slint = { version = "1.8", features = ["backend-android-activity-06"] }
 rusqlite = { version = "0.37.0", features = ["bundled"] }
+tokio = { version = "1.46.1", features = ["full"] }
+thiserror = "2.0.12"
+reqwest = "0.12.22"
 
 [build-dependencies]
 slint-build = "1.8.0"
