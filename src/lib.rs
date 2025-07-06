@@ -1,21 +1,20 @@
 // Prevent console window in addition to Slint window in Windows release builds when, e.g., starting the app via file manager. Ignored on other platforms.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-/*use std::error::Error;*/
+use std::error::Error;
 
 mod simple_log;
 
 slint::include_modules!();
 
 #[unsafe(no_mangle)]
-fn android_main(app: slint::android::AndroidApp) {
-
-    log!("videofinder started!");
+fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
 
     slint::android::init(app).unwrap();
 
     log!("slint::android initialized!");
 
+    /*
     slint::slint!{
         export component MainWindow inherits Window {
             Text { text: "Hello World"; }
@@ -24,7 +23,8 @@ fn android_main(app: slint::android::AndroidApp) {
     log!("slint code run");
 
     MainWindow::new().unwrap().run().unwrap();
-/*
+    */
+
     let ui = AppWindow::new()?;
 
     ui.on_request_increase_value({
@@ -38,5 +38,5 @@ fn android_main(app: slint::android::AndroidApp) {
     ui.run()?;
 
     Ok(())
-*/
+
 }
