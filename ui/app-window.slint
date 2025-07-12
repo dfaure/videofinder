@@ -6,6 +6,8 @@ export component AppWindow inherits Window {
 
     in-out property <int> counter: 42;
     callback request-increase-value();
+    callback download-db();
+
     VerticalBox {
         Text {
             text: "Videofinder";
@@ -18,6 +20,12 @@ export component AppWindow inherits Window {
             text: "Increase value";
             clicked => {
                 root.request-increase-value();
+            }
+        }
+	Button {
+	    text: "Download database";
+	    clicked => {
+	        root.download-db();
             }
         }
     }

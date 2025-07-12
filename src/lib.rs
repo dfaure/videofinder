@@ -4,6 +4,8 @@
 use std::error::Error;
 
 mod simple_log;
+mod download;
+use crate::download::download_db;
 
 slint::include_modules!();
 
@@ -52,6 +54,10 @@ fn sqlite_test() -> Result<()> {
     Ok(())
 }
 
+// Assuming you have an async runtime set up for Slint
+//use slint::ComponentHandle; // You might need this or similar for your Slint setup
+
+
 #[unsafe(no_mangle)]
 fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
 
@@ -69,6 +75,28 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
             let ui = ui_handle.unwrap();
             ui.set_counter(ui.get_counter() + 1);
         }
+    });
+
+    // ... inside your main function or where you set up the UI
+    ui.on_download_db(move || {
+            log!("clicked");
+        // Spawn a new thread
+        /*
+	std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+
+                // log!("download initiated"); // Changed log to info, as "donwload" was a typo
+                //download_db().await;
+                // log!("download finished");
+
+                // You might want to update the UI after the download completes
+                // For example, if you have a `download_complete` callback on your UI
+                // ui_handle.upgrade_in_event_loop(move |ui| {
+                //     ui.set_download_status("Completed");
+                // });
+            });
+        });*/
     });
 
     ui.run()?;
