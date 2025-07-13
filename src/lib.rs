@@ -4,8 +4,8 @@
 use std::error::Error;
 
 mod simple_log;
-mod download;
-use crate::download::download_db;
+// mod download;
+// use crate::download::download_db;
 
 slint::include_modules!();
 
@@ -68,18 +68,15 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
     sqlite_test()?;
 
     let ui = AppWindow::new()?;
+    ui.set_status("DB last updated: never".into());
 
-    ui.on_request_increase_value({
+    ui.on_download_db({
         let ui_handle = ui.as_weak();
         move || {
             let ui = ui_handle.unwrap();
-            ui.set_counter(ui.get_counter() + 1);
+            ui.set_status("Downloading...".into());
         }
-    });
-
-    // ... inside your main function or where you set up the UI
-    ui.on_download_db(move || {
-            log!("clicked");
+       
         // Spawn a new thread
         /*
 	std::thread::spawn(move || {
@@ -97,6 +94,10 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
                 // });
             });
         });*/
+    });
+
+    ui.on_search(|query| {
+        log!("TODO: search for {:?}", query);
     });
 
     ui.run()?;

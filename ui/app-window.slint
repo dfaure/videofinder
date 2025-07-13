@@ -1,31 +1,42 @@
-import { Button, VerticalBox } from "std-widgets.slint";
+import { Button, HorizontalBox, LineEdit, VerticalBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
 
     default-font-size: 20px;
 
-    in-out property <int> counter: 42;
+    in property <string> status;
     callback request-increase-value();
     callback download-db();
+    callback search(string);
 
     VerticalBox {
-        Text {
-            text: "Videofinder";
-        }
-        Text {
-            text: "Counter: \{root.counter}";
-        }
-
-        Button {
-            text: "Increase value";
-            clicked => {
-                root.request-increase-value();
+        HorizontalBox {
+            searchLineEdit := LineEdit {
+                placeholder-text: "Enter search string";
+                accepted(text) => {
+                    root.search(text);
+                }
+            }
+            Button {
+                icon: @image-url("icons/search.svg");
+                colorize-icon: true;
+                clicked => {
+                    root.search(searchLineEdit.text);
+                }
             }
         }
-	Button {
-	    text: "Download database";
-	    clicked => {
-	        root.download-db();
+        if searchLineEdit.text.is-empty : HorizontalBox {
+            HorizontalBox {
+                Text {
+                    text: "\{root.status}";
+                }
+
+                Button {
+                    text: "Download database";
+                    clicked => {
+                        root.download-db();
+                    }
+                }
             }
         }
     }

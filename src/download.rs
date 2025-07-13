@@ -30,9 +30,9 @@ pub async fn download_db() -> Result<(), DownloadError> {
 
     let mut dest = {
         let fname = "kvideomanager.sqlite";
-        let filePath = tmp_dir.join(fname);
-        log!("will be located under: '{:?}'", filePath);
-        File::create(filePath)?
+        let file_path = tmp_dir.join(fname);
+        log!("will be located under: '{:?}'", file_path);
+        File::create(file_path)?
     };
     let content = response.bytes().await?;
     dest.write_all(&content)?;
