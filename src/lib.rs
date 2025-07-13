@@ -2,55 +2,80 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::error::Error;
+use std::fs::File;
 
 mod simple_log;
-// mod download;
-// use crate::download::download_db;
+mod download;
+//use crate::download::download_db;
 
 slint::include_modules!();
 
-use rusqlite::{Connection, Result};
+use rusqlite::{Connection, OpenFlags, Result};
 
 #[derive(Debug)]
-struct Person {
-    id: i32,
+struct SearchResult {
+    serie_name: String,
     name: String,
-    data: Option<Vec<u8>>,
+    film_type: i32,
+    tape_type: i32,
+    season: i32,
+    episode: i32,
+    origin: String,
+    on_loan: bool,
+    code_tape: i32,
+    code_film: i32,
+    title: String,
+    path: String
 }
 
-fn sqlite_test() -> Result<()> {
-    let conn = Connection::open_in_memory()?;
+fn sqlite_search(text : String) -> Result<()> {
 
-    conn.execute(
-        "CREATE TABLE person (
-            id    INTEGER PRIMARY KEY,
-            name  TEXT NOT NULL,
-            data  BLOB
-        )",
-        (), // empty list of parameters.
-    )?;
-    let me = Person {
-        id: 0,
-        name: "Steven".to_string(),
-        data: None,
-    };
-    conn.execute(
-        "INSERT INTO person (id, name, data) VALUES (?1, ?2, ?3)",
-        (&me.id, &me.name, &me.data),
-    )?;
 
-    let mut stmt = conn.prepare("SELECT id, name, data FROM person")?;
-    let person_iter = stmt.query_map([], |row| {
-        Ok(Person {
-            id: row.get(0)?,
+    let conn = Connection::open_with_flags(download::db_full_path(), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+
+    // Prepend/append '%'
+    let pattern = format!("%{}%", text);
+    log!("  pattern={:?}", pattern);
+
+    let mut stmt = conn.prepare("SELECT Film.SERIE_NAME, Film.NAME, Film.TYPE, Tape.type, Film.SEASON, Film.EPISODE_NR, \
+          Tape.ORIGIN, Tape.ON_LOAN, Tape.code_tape, Film.code, Tape.TITLE, Tape.PATH \
+         FROM Tape LEFT JOIN (TapeFilm JOIN Film ON TapeFilm.code_film=Film.code) TapeFilm ON TapeFilm.code_tape=Tape.code_tape \
+         WHERE ( \
+           Tape.TITLE LIKE ?1 \
+           OR Film.SERIE_NAME LIKE ?2 \
+           OR Film.NAME LIKE ?3 \
+           OR Film.DIRECTOR LIKE ?4 \
+           OR Film.PRODUCER LIKE ?5 \
+           OR Film.COMPOSER LIKE ?6 \
+           OR Film.CODE IN (select CODE_FILM from Actor where ACTOR LIKE ?7) \
+         ) \
+         ORDER BY Film.SERIE_NAME, Film.NAME")?;
+
+    log!("prepared, now running");
+
+    let iter = stmt.query_map([&pattern, &pattern, &pattern, &pattern, &pattern, &pattern, &pattern], |row| {
+        Ok(SearchResult {
+            serie_name: row.get(0)?,
             name: row.get(1)?,
-            data: row.get(2)?,
+            film_type: row.get(2)?,
+            tape_type: row.get(3)?,
+            season: row.get(4)?,
+            episode: row.get(5)?,
+            origin: row.get(6)?,
+            on_loan: row.get(7)?,
+            code_tape: row.get(8)?,
+            code_film: row.get(9)?,
+            title: row.get(10)?,
+            path: row.get(11)?,
         })
     })?;
 
-    for person in person_iter {
-        log!("Found person {:?}", person.unwrap());
+    log!("Done running");
+
+    for search_result in iter {
+        log!("Search result {:?}", search_result.unwrap());
     }
+
     Ok(())
 }
 
@@ -65,10 +90,25 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
     slint::android::init(app).unwrap();
 
     log!("slint::android initialized");
-    sqlite_test()?;
 
     let ui = AppWindow::new()?;
-    ui.set_status("DB last updated: never".into());
+
+    let db_full_path = download::db_full_path();
+    if !db_full_path.exists() {
+        let status = format!("DB file does not exist: {}", db_full_path.display());
+        ui.set_status(status.into());
+    } else {
+        match File::open(db_full_path) {
+            Ok(_) => {
+                ui.set_status("DB last updated: never".into());
+            },
+            Err(e) => {
+                log!("File::open failed: {}", e);
+                let error_msg = format!("DB exists but cannot be opened: {}", e);
+                ui.set_status(error_msg.into());
+            }
+        }
+    }
 
     ui.on_download_db({
         let ui_handle = ui.as_weak();
@@ -96,8 +136,22 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
         });*/
     });
 
-    ui.on_search(|query| {
-        log!("TODO: search for {:?}", query);
+    ui.on_search({
+        let ui_handle = ui.as_weak();
+        move |text| {
+            let ui = ui_handle.unwrap();
+            log!("searching for {:?}", text);
+            match sqlite_search(text.to_string()) {
+                Ok(_) => {
+                    log!("TODO: display results");
+                    ui.set_search_error("TODO display results".to_owned().into());
+                },
+                Err(e) => {
+                    let error_msg = format!("Error: {}", e);
+                    ui.set_search_error(error_msg.into());
+                }
+            }
+        }
     });
 
     ui.run()?;
