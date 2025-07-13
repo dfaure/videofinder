@@ -25,7 +25,7 @@ pub enum DownloadError {
 //}
 
 fn db_dir() -> PathBuf {
-    PathBuf::from("/storage/emulated/0/Documents/")
+    PathBuf::from("/storage/emulated/0/Android/data/fr.davidfaure.videofinder/files/")
 }
 
 fn db_fname() -> &'static str {
