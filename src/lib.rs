@@ -3,33 +3,27 @@
 
 use std::error::Error;
 use std::fs::File;
+use std::rc::Rc; // "reference counted"
 
 mod simple_log;
 mod download;
-//use crate::download::download_db;
+mod enums;
 
+use crate::enums::SupportType;
+use crate::enums::FilmType;
+//use crate::download::download_db;
+use slint::VecModel;
+
+// Include the slint-generated code
 slint::include_modules!();
 
 use rusqlite::{Connection, OpenFlags, Result};
 
-#[derive(Debug)]
-struct SearchResult {
-    serie_name: String,
-    name: String,
-    film_type: i32,
-    tape_type: i32,
-    season: i32,
-    episode: i32,
-    origin: String,
-    on_loan: bool,
-    code_tape: i32,
-    code_film: i32,
-    title: String,
-    path: String
-}
-
-fn sqlite_search(text : String) -> Result<()> {
-
+// do not use unwrap in this code, let errors propagate up to the UI
+// ResultItemData is a GUI type, defined in the slint code
+// Using this here is a bit arguable in terms of core/ui separation,
+// but avoids conversions & code duplication.
+fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
 
     let conn = Connection::open_with_flags(download::db_full_path(), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
 
@@ -54,29 +48,63 @@ fn sqlite_search(text : String) -> Result<()> {
     log!("prepared, now running");
 
     let iter = stmt.query_map([&pattern, &pattern, &pattern, &pattern, &pattern, &pattern, &pattern], |row| {
-        Ok(SearchResult {
-            serie_name: row.get(0)?,
-            name: row.get(1)?,
-            film_type: row.get(2)?,
-            tape_type: row.get(3)?,
-            season: row.get(4)?,
-            episode: row.get(5)?,
-            origin: row.get(6)?,
-            on_loan: row.get(7)?,
-            code_tape: row.get(8)?,
-            code_film: row.get(9)?,
-            title: row.get(10)?,
-            path: row.get(11)?,
-        })
+        let serie_name = row.get::<_, Option<String>>(0)?;
+        log!("serie_name: {:?}", serie_name);
+        let name = row.get::<_, Option<String>>(1)?;
+        log!("name: {:?}", name);
+        let title = row.get::<_, String>(10)?;
+        log!("title: {:?}", title);
+        let film_type = row.get::<_, Option<i32>>(2)?;
+        log!("film_type: {:?}", film_type);
+        let support_type = row.get::<_, i32>(3)?;
+        log!("support_type: {:?}", support_type);
+
+        /*
+        let origin = row.get(6)?;
+        let on_loan = row.get(7)?;
+        let code_tape = row.get(8)?;
+        let code_film = row.get(9)?;
+        let path = row.get(11)?;
+        */
+
+        let film_name = {
+            if support_type == SupportType::COMPUTERFILE as i32 {
+                title
+            } else if film_type == Some(FilmType::TELEVISION as i32) {
+                let mut film_name : String;
+                if let (Some(serie), Some(n)) = (&serie_name, &name) {
+                    // Inside this block, 'serie' and 'n' are &String (references to String)
+                    // You can dereference them (*serie, *n) or use .clone() if you need owned String
+                   film_name = format!("{} -- {}", serie, n);
+                } else {
+                   film_name = name.unwrap_or_else(|| String::new());
+                }
+                let season : i32 = row.get(4)?;
+                let episode : i32 = row.get(5)?;
+                let episode_number = season * 100 + episode;
+                film_name = format!("{} ({})", film_name, episode_number);
+                film_name
+            } else { // Film
+                name.unwrap_or(String::new())
+            }
+        };
+
+        Ok(
+            ResultItemData {
+                film_name: film_name.into(),
+                support_type: support_type,
+            })
     })?;
 
     log!("Done running");
 
+    let mut results : Vec<ResultItemData> = vec![];
     for search_result in iter {
-        log!("Search result {:?}", search_result.unwrap());
+        //log!("Search result {:?}", search_result?);
+        results.push(search_result?);
     }
 
-    Ok(())
+    Ok(results)
 }
 
 // Assuming you have an async runtime set up for Slint
@@ -143,9 +171,10 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
             let ui = ui_handle.unwrap();
             log!("searching for {:?}", text);
             match sqlite_search(text.to_string()) {
-                Ok(_) => {
-                    log!("TODO: display results");
-                    ui.set_search_error("TODO display results".to_owned().into());
+                Ok(results) => {
+                    log!("displaying {} results", results.len());
+                    let model: Rc<VecModel<ResultItemData>> = Rc::new(VecModel::from(results));
+                    ui.set_result_items(model.clone().into());
                 },
                 Err(e) => {
                     let error_msg = format!("Error: {}", e);

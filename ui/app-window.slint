@@ -1,4 +1,24 @@
-import { Button, HorizontalBox, LineEdit, VerticalBox } from "std-widgets.slint";
+import { Button, HorizontalBox, LineEdit, ListView, StandardListView, VerticalBox } from "std-widgets.slint";
+
+struct ResultItemData {
+    film_name: string,
+    support_type: int,
+    // etc.
+}
+
+component ResultItemDisplay {
+    in property <string> film_name;
+    in property <int> support_type;
+
+    HorizontalBox {
+        spacing: 5px; // Space between icon and text
+        // Image TODO
+        Text {
+            text: film_name;
+            vertical-alignment: center;
+        }
+    }
+}
 
 export component AppWindow inherits Window {
 
@@ -6,12 +26,13 @@ export component AppWindow inherits Window {
 
     in property <string> status; // last DB update etc.
     in property <string> search_error;
+    in property <[ResultItemData]> result_items: [];
+
     callback request-increase-value();
     callback download-db();
     callback search(string);
 
     VerticalBox {
-        alignment: start;
         HorizontalBox {
             searchLineEdit := LineEdit {
                 placeholder-text: "Enter search string";
@@ -46,6 +67,14 @@ export component AppWindow inherits Window {
         }
         if !search_error.is-empty : Text {
             text: search_error;
+        }
+        if search_error.is-empty : ListView {
+            for data in result_items : ResultItemDisplay {
+                film_name: data.film_name;
+                support_type: data.support_type;
+            }
+            vertical-stretch: 1;
+            mouse-drag-pan-enabled: true;
         }
     }
 }
