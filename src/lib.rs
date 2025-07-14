@@ -98,6 +98,7 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
         let status = format!("DB file does not exist: {}", db_full_path.display());
         ui.set_status(status.into());
     } else {
+        // Check if readable, to debug permission problems on Android
         match File::open(db_full_path) {
             Ok(_) => {
                 ui.set_status("DB last updated: never".into());
