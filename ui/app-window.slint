@@ -11,6 +11,7 @@ export component AppWindow inherits Window {
     callback search(string);
 
     VerticalBox {
+        alignment: start;
         HorizontalBox {
             searchLineEdit := LineEdit {
                 placeholder-text: "Enter search string";
@@ -28,12 +29,14 @@ export component AppWindow inherits Window {
         }
         if searchLineEdit.text.is-empty : HorizontalBox {
             HorizontalBox {
+                alignment: start;
                 Text {
                     text: "\{root.status}";
+                    vertical-alignment: center;
                 }
 
                 Button {
-                    text: "Download database";
+                    icon: @image-url("icons/reload.png");
                     clicked => {
                         root.download-db();
                     }
