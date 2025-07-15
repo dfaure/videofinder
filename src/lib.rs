@@ -112,8 +112,8 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
 fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
 
     // Log to file, on Android
-    flexi_logger::Logger::with(LevelFilter::Debug)?
-    .log_to_file(FileSpec::try_from("/sdcard/Download/videofinder_logs.txt"))         // write logs to file
+    flexi_logger::Logger::with(flexi_logger::LevelFilter::Debug)
+    .log_to_file(flexi_logger::FileSpec::try_from("/sdcard/Download/videofinder_logs.txt")?) 
     .start()?;
 
     log::info!("videofinder started");
