@@ -5,7 +5,6 @@ use std::error::Error;
 use std::fs::File;
 use std::rc::Rc; // "reference counted"
 
-mod simple_log;
 mod download;
 mod enums;
 
@@ -29,7 +28,7 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
 
     // Prepend/append '%'
     let pattern = format!("%{}%", text);
-    log!("  pattern={:?}", pattern);
+    log::debug!("  pattern={:?}", pattern);
 
     let mut stmt = conn.prepare("SELECT Film.SERIE_NAME, Film.NAME, Film.TYPE, Tape.type, Film.SEASON, Film.EPISODE_NR, \
           Tape.ORIGIN, Tape.ON_LOAN, Tape.code_tape, Film.code, Tape.TITLE, Tape.PATH \
@@ -45,19 +44,19 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
          ) \
          ORDER BY Film.SERIE_NAME, Film.NAME")?;
 
-    log!("prepared, now running");
+    log::debug!("prepared, now running");
 
     let iter = stmt.query_map([&pattern, &pattern, &pattern, &pattern, &pattern, &pattern, &pattern], |row| {
         let serie_name = row.get::<_, Option<String>>(0)?;
-        log!("serie_name: {:?}", serie_name);
+        log::debug!("serie_name: {:?}", serie_name);
         let name = row.get::<_, Option<String>>(1)?;
-        log!("name: {:?}", name);
+        log::debug!("name: {:?}", name);
         let title = row.get::<_, String>(10)?;
-        log!("title: {:?}", title);
+        log::debug!("title: {:?}", title);
         let film_type = row.get::<_, Option<i32>>(2)?;
-        log!("film_type: {:?}", film_type);
+        log::debug!("film_type: {:?}", film_type);
         let support_type = row.get::<_, i32>(3)?;
-        log!("support_type: {:?}", support_type);
+        log::debug!("support_type: {:?}", support_type);
 
         /*
         let origin = row.get(6)?;
@@ -96,11 +95,11 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
             })
     })?;
 
-    log!("Done running");
+    log::debug!("Done running");
 
     let mut results : Vec<ResultItemData> = vec![];
     for search_result in iter {
-        //log!("Search result {:?}", search_result?);
+        //log::debug!("Search result {:?}", search_result?);
         results.push(search_result?);
     }
 
@@ -115,13 +114,19 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
 #[unsafe(no_mangle)]
 fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
 
-    log!("videofinder started");
+    // Log to file, on Android
+    flexi_logger::Logger::with(LevelFilter::Debug)?
+    .log_to_file(FileSpec::try_from("/sdcard/Download/videofinder_logs.txt"))         // write logs to file
+    .start()?;
+
+    log::info!("videofinder started");
     slint::android::init(app).unwrap();
-    log!("slint::android initialized");
+    log::debug!("slint::android initialized");
     videofinder_main()
 }
 
 pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
+
     let ui = AppWindow::new()?;
 
     let db_full_path = download::db_full_path();
@@ -135,7 +140,7 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
                 ui.set_status("DB last updated: never".into());
             },
             Err(e) => {
-                log!("File::open failed: {}", e);
+                log::error!("File::open failed: {}", e);
                 let error_msg = format!("DB exists but cannot be opened: {}", e);
                 ui.set_status(error_msg.into());
             }
@@ -155,9 +160,9 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
             let rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(async {
 
-                // log!("download initiated"); // Changed log to info, as "donwload" was a typo
+                // log::debug!("download initiated");
                 //download_db().await;
-                // log!("download finished");
+                // log::debug!("download finished");
 
                 // You might want to update the UI after the download completes
                 // For example, if you have a `download_complete` callback on your UI
@@ -172,10 +177,10 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
         let ui_handle = ui.as_weak();
         move |text| {
             let ui = ui_handle.unwrap();
-            log!("searching for {:?}", text);
+            log::debug!("searching for {:?}", text);
             match sqlite_search(text.to_string()) {
                 Ok(results) => {
-                    log!("displaying {} results", results.len());
+                    log::debug!("displaying {} results", results.len());
                     let model: Rc<VecModel<ResultItemData>> = Rc::new(VecModel::from(results));
                     ui.set_result_items(model.clone().into());
                 },

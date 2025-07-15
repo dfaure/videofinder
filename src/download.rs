@@ -4,8 +4,6 @@ use std::path::PathBuf;
 use std::env;
 use thiserror::Error;
 
-use crate::log;
-
 #[derive(Error, Debug)]
 pub enum DownloadError {
     #[error("Local error: {0}")]
@@ -52,7 +50,7 @@ pub async fn download_db() -> Result<(), DownloadError> {
 
     let mut dest = {
         let file_path = db_full_path();
-        log!("will be located under: '{:?}'", file_path);
+        log::debug!("will be located under: '{:?}'", file_path);
         File::create(file_path)?
     };
     let content = response.bytes().await?;
