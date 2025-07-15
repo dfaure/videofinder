@@ -78,8 +78,8 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
                 } else {
                    film_name = name.unwrap_or_else(|| String::new());
                 }
-                let season : i32 = row.get(4)?;
-                let episode : i32 = row.get(5)?;
+                let season : i32 = row.get::<_, i32>(4)?;
+                let episode : i32 = row.get::<_, i32>(5)?;
                 let episode_number = season * 100 + episode;
                 film_name = format!("{} ({})", film_name, episode_number);
                 film_name
@@ -106,10 +106,6 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
     Ok(results)
 }
 
-// Assuming you have an async runtime set up for Slint
-//use slint::ComponentHandle; // You might need this or similar for your Slint setup
-
-
 #[cfg(target_os = "android")]
 #[unsafe(no_mangle)]
 fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
@@ -125,10 +121,7 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
     videofinder_main()
 }
 
-pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
-
-    let ui = AppWindow::new()?;
-
+fn show_db_status(ui: &AppWindow) {
     let db_full_path = download::db_full_path();
     if !db_full_path.exists() {
         let status = format!("DB file does not exist: {}", db_full_path.display());
@@ -146,6 +139,13 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
+}
+
+pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
+
+    let ui = AppWindow::new()?;
+
+    show_db_status(&ui);
 
     ui.on_download_db({
         let ui_handle = ui.as_weak();
@@ -153,7 +153,7 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
             let ui = ui_handle.unwrap();
             ui.set_status("Downloading...".into());
         }
-       
+
         // Spawn a new thread
         /*
 	std::thread::spawn(move || {
