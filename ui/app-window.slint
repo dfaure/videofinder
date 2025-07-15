@@ -15,6 +15,7 @@ component ResultItemDisplay {
         // Image TODO
         Text {
             text: film_name;
+            wrap: word-wrap;
             vertical-alignment: center;
         }
     }
@@ -22,7 +23,7 @@ component ResultItemDisplay {
 
 export component AppWindow inherits Window {
 
-    default-font-size: 16px;
+    default-font-size: 20px;
 
     in property <string> status; // last DB update etc.
     in property <string> search_error;
@@ -68,11 +69,13 @@ export component AppWindow inherits Window {
         if !search_error.is-empty : Text {
             text: search_error;
         }
-        if search_error.is-empty : ListView {
+        if search_error.is-empty : resultListView := ListView {
             for data in result_items : ResultItemDisplay {
                 film_name: data.film_name;
                 support_type: data.support_type;
+                width: resultListView.viewport-width;
             }
+            horizontal-scrollbar-policy: always-off;
             vertical-stretch: 1;
             mouse-drag-pan-enabled: true;
         }
