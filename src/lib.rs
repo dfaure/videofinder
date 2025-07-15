@@ -111,14 +111,17 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
 //use slint::ComponentHandle; // You might need this or similar for your Slint setup
 
 
+#[cfg(target_os = "android")]
 #[unsafe(no_mangle)]
 fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
 
     log!("videofinder started");
     slint::android::init(app).unwrap();
-
     log!("slint::android initialized");
+    videofinder_main()
+}
 
+pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
 
     let db_full_path = download::db_full_path();

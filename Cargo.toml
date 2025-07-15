@@ -17,7 +17,15 @@ reqwest = "0.12.22"
 slint-build = "1.12.0"
 
 [lib]
-crate-type = ["cdylib"]
+# https://github.com/rust-lang/cargo/issues/12260#issuecomment-2225216175 says this might create trouble on Windows...
+# cdylib = Build as a C-compatible dynamic library for Android
+# rlib = Build a Rust library for the desktop build
+crate-type = ["cdylib", "rlib"]
 
-[patch.crates-io]
-android-build = { path = "../local-crates/android-build" }
+# https://gendignoux.com/blog/2022/10/24/rust-library-android.html
+[profile.release]
+strip = true
+
+
+#[patch.crates-io]
+#android-build = { path = "../local-crates/android-build" }

@@ -1,6 +1,7 @@
 use std::io::Write;
 use std::fs::File;
 use std::path::PathBuf;
+use std::env;
 use thiserror::Error;
 
 use crate::log;
@@ -25,7 +26,11 @@ pub enum DownloadError {
 //}
 
 fn db_dir() -> PathBuf {
-    PathBuf::from("/storage/emulated/0/Android/data/fr.davidfaure.videofinder/files/")
+    if cfg!(target_os = "android") {
+        PathBuf::from("/storage/emulated/0/Android/data/fr.davidfaure.videofinder/files/")
+    } else {
+        PathBuf::from(env::home_dir().unwrap_or("No Home Dir!".into()))
+    }
 }
 
 fn db_fname() -> &'static str {
