@@ -7,14 +7,13 @@ struct ResultItemData {
 }
 
 component ResultItemDisplay {
-    in property <string> film_name;
-    in property <int> support_type;
+    in property <ResultItemData> data;
 
     HorizontalBox {
         spacing: 5px; // Space between icon and text
         // Image TODO
         Text {
-            text: film_name;
+            text: data.film_name;
             wrap: word-wrap;
             vertical-alignment: center;
         }
@@ -70,9 +69,8 @@ export component AppWindow inherits Window {
             text: search_error;
         }
         if search_error.is-empty : resultListView := ListView {
-            for data in result_items : ResultItemDisplay {
-                film_name: data.film_name;
-                support_type: data.support_type;
+            for result in result_items : ResultItemDisplay {
+                data: result;
                 width: resultListView.viewport-width;
             }
             horizontal-scrollbar-policy: always-off;
