@@ -48,15 +48,15 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
 
     let iter = stmt.query_map([&pattern, &pattern, &pattern, &pattern, &pattern, &pattern, &pattern], |row| {
         let serie_name = row.get::<_, Option<String>>(0)?;
-        log::debug!("serie_name: {:?}", serie_name);
+        //log::debug!("serie_name: {:?}", serie_name);
         let name = row.get::<_, Option<String>>(1)?;
-        log::debug!("name: {:?}", name);
+        //log::debug!("name: {:?}", name);
         let title = row.get::<_, String>(10)?;
-        log::debug!("title: {:?}", title);
+        //log::debug!("title: {:?}", title);
         let film_type = row.get::<_, Option<i32>>(2)?;
-        log::debug!("film_type: {:?}", film_type);
+        //log::debug!("film_type: {:?}", film_type);
         let support_type = row.get::<_, i32>(3)?;
-        log::debug!("support_type: {:?}", support_type);
+        //log::debug!("support_type: {:?}", support_type);
 
         /*
         let origin = row.get(6)?;
@@ -78,6 +78,7 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
                 } else {
                    film_name = name.unwrap_or_else(|| String::new());
                 }
+                log::debug!("season as Option<String>: {:?}", row.get::<_, Option<String>>(4));
                 let season : i32 = row.get::<_, i32>(4)?;
                 let episode : i32 = row.get::<_, i32>(5)?;
                 let episode_number = season * 100 + episode;
