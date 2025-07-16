@@ -1,13 +1,13 @@
-use std::io::Write;
-use std::fs::File;
+//use std::io::Write;
+//use std::fs::File;
 use std::path::PathBuf;
 use std::env;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum DownloadError {
-    #[error("Local error: {0}")]
-    LocalError(String),
+    //#[error("Local error: {0}")]
+    //LocalError(String),
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
     #[error("HTTP request error: {0}")]
@@ -39,6 +39,7 @@ pub fn db_full_path() -> PathBuf {
     db_dir().join(db_fname())
 }
 
+/*
 pub async fn download_db() -> Result<(), DownloadError> {
     let target_dir = db_dir();
     if !target_dir.exists() {
@@ -57,3 +58,4 @@ pub async fn download_db() -> Result<(), DownloadError> {
     dest.write_all(&content)?;
     Ok(())
 }
+*/

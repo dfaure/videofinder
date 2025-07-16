@@ -4,6 +4,7 @@
 use std::error::Error;
 use std::fs::File;
 use std::rc::Rc; // "reference counted"
+use std::time::Instant;
 
 mod download;
 mod enums;
@@ -78,14 +79,17 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
                 } else {
                    film_name = name.unwrap_or_else(|| String::new());
                 }
-                log::debug!("season as Option<String>: {:?}", row.get::<_, Option<String>>(4));
-                let season : i32 = row.get::<_, i32>(4)?;
-                let episode : i32 = row.get::<_, i32>(5)?;
-                let episode_number = season * 100 + episode;
-                film_name = format!("{} ({})", film_name, episode_number);
+                let maybe_season = row.get::<_, Option<i32>>(4).unwrap_or(None); // some are String("")
+                let maybe_episode = row.get::<_, Option<i32>>(5).unwrap_or(None);
+                if let (Some(season), Some(episode)) = (maybe_season, maybe_episode) {
+                    let episode_number = season * 100 + episode;
+                    film_name = format!("{} ({})", film_name, episode_number);
+                }
                 film_name
-            } else { // Film
-                name.unwrap_or(String::new())
+            } else if name.is_some() { // Film
+                name.unwrap()
+            } else { // Tape without a film
+                title
             }
         };
 
@@ -182,8 +186,12 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
             match sqlite_search(text.to_string()) {
                 Ok(results) => {
                     log::debug!("displaying {} results", results.len());
+                    let start_time = Instant::now();
                     let model: Rc<VecModel<ResultItemData>> = Rc::new(VecModel::from(results));
+                    log::debug!("creating VecModel: {:?}", start_time.elapsed());
+                    let start_time_2 = Instant::now();
                     ui.set_result_items(model.clone().into());
+                    log::debug!("set_result_items: {:?}", start_time_2.elapsed());
                 },
                 Err(e) => {
                     let error_msg = format!("Error: {}", e);
