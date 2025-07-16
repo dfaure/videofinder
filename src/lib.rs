@@ -17,13 +17,30 @@ use slint::VecModel;
 // Include the slint-generated code
 slint::include_modules!();
 
-use rusqlite::{Connection, OpenFlags, Result};
+//////////////////// SEARCH SUPPORT /////////////
+
+use rusqlite::{Connection, OpenFlags};
+use rusqlite::types::{FromSql, FromSqlError, FromSqlResult};
+
+impl FromSql for SupportType {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> FromSqlResult<Self> {
+        match value.as_i64() {
+            Ok(1) => Ok(SupportType::TAPE),
+            Ok(2) => Ok(SupportType::DVD),
+            Ok(4) => Ok(SupportType::COMPUTERFILE),
+            Ok(8) => Ok(SupportType::BLURAY),
+            // Handle any other i32 value that doesn't correspond to a variant.
+            Ok(_) => Err(FromSqlError::InvalidType),
+            Err(e) => Err(e)
+        }
+    }
+}
 
 // do not use unwrap in this code, let errors propagate up to the UI
 // ResultItemData is a GUI type, defined in the slint code
 // Using this here is a bit arguable in terms of core/ui separation,
 // but avoids conversions & code duplication.
-fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
+fn sqlite_search(text : String) -> rusqlite::Result<Vec<ResultItemData>> {
 
     let conn = Connection::open_with_flags(download::db_full_path(), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
 
@@ -56,19 +73,32 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
         //log::debug!("title: {:?}", title);
         let film_type = row.get::<_, Option<i32>>(2)?;
         //log::debug!("film_type: {:?}", film_type);
-        let support_type = row.get::<_, i32>(3)?;
+        let support_type = row.get::<_, SupportType>(3)?;
+        /*
+        let support_type : SupportType = support_type_raw.try_into()
+        .map_err(|e| {
+                // Convert your custom &'static str error into a String,
+                // and then box it into a dynamic error trait object,
+                // which rusqlite::Error::FromSql::Other expects.
+                RusqliteError::FromSql(
+                    rusqlite::types::FromSqlError::Other(
+                        Box::new(CustomConversionError(e.to_string()))
+                    )
+                )
+        });
+        */
         //log::debug!("support_type: {:?}", support_type);
 
+        let origin = row.get::<_, String>(6).unwrap_or(String::new());
+        let on_loan = row.get::<_, bool>(7).unwrap_or(false);
         /*
-        let origin = row.get(6)?;
-        let on_loan = row.get(7)?;
         let code_tape = row.get(8)?;
         let code_film = row.get(9)?;
         let path = row.get(11)?;
         */
 
         let film_name = {
-            if support_type == SupportType::COMPUTERFILE as i32 {
+            if support_type == SupportType::COMPUTERFILE {
                 title
             } else if film_type == Some(FilmType::TELEVISION as i32) {
                 let mut film_name : String;
@@ -96,7 +126,8 @@ fn sqlite_search(text : String) -> Result<Vec<ResultItemData>> {
         Ok(
             ResultItemData {
                 film_name: film_name.into(),
-                support_type: support_type,
+                support_color: crate::enums::color_for_support(support_type, origin, on_loan),
+                support_type_text: crate::enums::letter_for_support_type(support_type).into(),
             })
     })?;
 

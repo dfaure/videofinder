@@ -2,8 +2,8 @@ import { Button, HorizontalBox, LineEdit, ListView, StandardListView, VerticalBo
 
 struct ResultItemData {
     film_name: string,
-    support_type: int,
-    // etc.
+    support_color: color,
+    support_type_text: string,
 }
 
 component ResultItemDisplay {
@@ -11,8 +11,24 @@ component ResultItemDisplay {
 
     HorizontalBox {
         spacing: 5px; // Space between icon and text
-        // Image TODO
-        Text {
+        Rectangle {
+            border-width: 1px;
+            border-color: black;
+            // TODO: FontMetrics only has height-related methods!!
+            //width: letter.font-metrics.width('O') + 10;
+            width: 24px;
+            // Why doesn't FontMetrics have height?
+            height: letter.font-metrics.ascent - letter.font-metrics.descent + 10px;
+            background: data.support_color;
+            letter := Text {
+                width: parent.width;
+                height: parent.height;
+                text: data.support_type_text;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        filmNameText := Text {
             text: data.film_name;
             wrap: word-wrap;
             vertical-alignment: center;
