@@ -58,19 +58,6 @@ pub fn sqlite_search(text : String) -> rusqlite::Result<Vec<ResultItemData>> {
         let film_type = row.get::<_, Option<i32>>(2)?;
         //log::debug!("film_type: {:?}", film_type);
         let support_type = row.get::<_, SupportType>(3)?;
-        /*
-        let support_type : SupportType = support_type_raw.try_into()
-        .map_err(|e| {
-                // Convert your custom &'static str error into a String,
-                // and then box it into a dynamic error trait object,
-                // which rusqlite::Error::FromSql::Other expects.
-                RusqliteError::FromSql(
-                    rusqlite::types::FromSqlError::Other(
-                        Box::new(CustomConversionError(e.to_string()))
-                    )
-                )
-        });
-        */
         //log::debug!("support_type: {:?}", support_type);
 
         let origin = row.get::<_, String>(6).unwrap_or(String::new());
