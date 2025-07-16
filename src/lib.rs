@@ -147,8 +147,8 @@ fn sqlite_search(text : String) -> rusqlite::Result<Vec<ResultItemData>> {
 fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
 
     // Log to file, on Android
-    flexi_logger::Logger::with(flexi_logger::LevelFilter::Debug)
-    .log_to_file(flexi_logger::FileSpec::try_from("/sdcard/Download/videofinder_logs.txt")?) 
+    flexi_logger::Logger::with(flexi_logger::LevelFilter::Info)
+    .log_to_file(flexi_logger::FileSpec::try_from("/storage/emulated/0/Download/videofinder_logs.txt")?)
     .start()?;
 
     log::info!("videofinder started");
@@ -213,16 +213,18 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
         let ui_handle = ui.as_weak();
         move |text| {
             let ui = ui_handle.unwrap();
-            log::debug!("searching for {:?}", text);
+            log::info!("searching for {:?}", text);
+            let start_time_sql = Instant::now();
             match sqlite_search(text.to_string()) {
                 Ok(results) => {
-                    log::debug!("displaying {} results", results.len());
-                    let start_time = Instant::now();
+                    log::info!("SQL search: {:?}", start_time_sql.elapsed());
+                    log::info!("displaying {} results", results.len());
+                    let start_time_vec = Instant::now();
                     let model: Rc<VecModel<ResultItemData>> = Rc::new(VecModel::from(results));
-                    log::debug!("creating VecModel: {:?}", start_time.elapsed());
-                    let start_time_2 = Instant::now();
+                    log::info!("creating VecModel: {:?}", start_time_vec.elapsed());
+                    let start_time_set = Instant::now();
                     ui.set_result_items(model.clone().into());
-                    log::debug!("set_result_items: {:?}", start_time_2.elapsed());
+                    log::info!("set_result_items: {:?}", start_time_set.elapsed());
                 },
                 Err(e) => {
                     let error_msg = format!("Error: {}", e);
