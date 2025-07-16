@@ -42,7 +42,7 @@ export component AppWindow inherits Window {
 
     in property <string> status; // last DB update etc.
     in property <string> search_error;
-    in property <[ResultItemData]> result_items: [];
+    in property <[ResultItemData]> result_items;
 
     callback request-increase-value();
     callback download-db();

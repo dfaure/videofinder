@@ -21,11 +21,11 @@ pub fn letter_for_support_type(support_type: SupportType) -> &'static str {
     }
 }
 
-pub fn color_for_support(support_type: SupportType, _origin: String, _on_loan: bool) -> slint::Color {
-    match support_type {
+pub fn color_for_support(support_type: SupportType, origin: String, on_loan: bool) -> slint::Color {
+    let base_color = match support_type {
         SupportType::TAPE => {
-        // TODO const bool is_taped = !origin.isEmpty() && (origin[0] == 'E' || origin[0] == 'T'); // "enregistre" or "taped"
-            let is_taped = false;
+            // "enregistre" or "taped"
+            let is_taped = origin.starts_with('E') || origin.starts_with('T');
             if is_taped {
                 slint::Color::from_argb_encoded(0xFF1AE0FF) // light blue
             } else {
@@ -38,9 +38,10 @@ pub fn color_for_support(support_type: SupportType, _origin: String, _on_loan: b
         SupportType::BLURAY => slint::Color::from_argb_encoded(0xFF000084), // dark blue
         SupportType::COMPUTERFILE => slint::Color::from_argb_encoded(0xFFFFDCA8), // very light
                                                                                   // orange
+    };
+    if on_loan {
+        base_color.brighter(0.5)
+    } else {
+        base_color
     }
-    /* TODO
-    if (onLoan) {
-        brush.setColor(brush.color().lighter());
-    }*/
 }
