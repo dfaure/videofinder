@@ -22,8 +22,9 @@ slint::include_modules!();
 fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
 
     // Log to file, on Android
-    flexi_logger::Logger::with(flexi_logger::LevelFilter::Info)
+    flexi_logger::Logger::try_with_env_or_str("debug,android_activity::activity_impl::glue=off")?
     .log_to_file(flexi_logger::FileSpec::try_from("/storage/emulated/0/Download/videofinder_logs.txt")?)
+    .format(flexi_logger::detailed_format)
     .start()?;
 
     log::info!("videofinder started");
