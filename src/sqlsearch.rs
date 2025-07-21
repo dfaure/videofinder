@@ -2,6 +2,7 @@ use crate::enums::SupportType;
 use crate::enums::FilmType;
 use crate::download;
 use crate::ResultItemData;
+use crate::RecordWrapper;
 
 use rusqlite::{Connection, OpenFlags};
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult};
@@ -33,7 +34,7 @@ pub fn sqlite_search(text : String) -> rusqlite::Result<Vec<ResultItemData>> {
     log::debug!("  pattern={:?}", pattern);
 
     let mut stmt = conn.prepare("SELECT Film.SERIE_NAME, Film.NAME, Film.TYPE, Tape.type, Film.SEASON, Film.EPISODE_NR, \
-          Tape.ORIGIN, Tape.ON_LOAN, Tape.code_tape, Film.code, Tape.TITLE, Tape.PATH \
+          Tape.ORIGIN, Tape.ON_LOAN, Tape.code_tape, Film.code, Tape.TITLE \
          FROM Tape LEFT JOIN (TapeFilm JOIN Film ON TapeFilm.code_film=Film.code) TapeFilm ON TapeFilm.code_tape=Tape.code_tape \
          WHERE ( \
            Tape.TITLE LIKE ?1 \
@@ -62,11 +63,8 @@ pub fn sqlite_search(text : String) -> rusqlite::Result<Vec<ResultItemData>> {
 
         let origin = row.get::<_, String>(6).unwrap_or(String::new());
         let on_loan = row.get::<_, bool>(7).unwrap_or(false);
-        /*
-        let code_tape = row.get(8)?;
-        let code_film = row.get(9)?;
-        let path = row.get(11)?;
-        */
+        let support_code = row.get::<_, i32>(8).unwrap_or(0);
+        let film_code = row.get::<_, i32>(9).unwrap_or(0);
 
         let film_name = {
             if support_type == SupportType::COMPUTERFILE {
@@ -99,6 +97,8 @@ pub fn sqlite_search(text : String) -> rusqlite::Result<Vec<ResultItemData>> {
                 film_name: film_name.into(),
                 support_color: crate::enums::color_for_support(support_type, origin, on_loan),
                 support_type_text: crate::enums::letter_for_support_type(support_type).into(),
+                film_code: film_code,
+                support_code: support_code,
             })
     })?;
 
@@ -111,5 +111,43 @@ pub fn sqlite_search(text : String) -> rusqlite::Result<Vec<ResultItemData>> {
     }
 
     Ok(results)
+}
+
+pub fn sqlite_get_record(film_code : i32, support_code : i32) -> rusqlite::Result<RecordWrapper> {
+    let conn = Connection::open_with_flags(download::db_full_path(), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    let mut support_query = conn.prepare("SELECT type, shelf, row, position, location, path FROM Tape WHERE Tape.code_tape=?1")?;
+    log::info!("Doing support query for support code {}", support_code);
+    let mut record_wrapper = support_query.query_row([support_code],
+        |row| {
+            Ok(RecordWrapper {
+                isComputerFile: row.get::<_, SupportType>(0)? == SupportType::COMPUTERFILE,
+                shelf: row.get(1)?,
+                row: row.get(2)?,
+                position: row.get(3)?,
+                location: row.get::<_, String>(4)?.into(),
+                path: row.get::<_, String>(5)?.into(),
+                // these will be set further below
+                film_code: 0,
+                duration: 0,
+                year: 0,
+            })
+            }
+        )?;
+    if record_wrapper.isComputerFile {
+        return Ok(record_wrapper);
+    }
+
+    if film_code != 0 {
+        log::info!("Doing film query for film code {}", film_code);
+        let mut film_query = conn.prepare("SELECT year, duration FROM Film WHERE Film.code=?1")?;
+        film_query.query_row([film_code], |row| {
+            record_wrapper.year = row.get(0).unwrap_or(0);
+            record_wrapper.duration = row.get(1).unwrap_or(0);
+            record_wrapper.film_code = film_code;
+            Ok(())
+        })?;
+    }
+
+    return Ok(record_wrapper);
 }
 

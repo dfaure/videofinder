@@ -1,15 +1,21 @@
 import { Button, HorizontalBox, LineEdit, ListView, StandardListView, VerticalBox } from "std-widgets.slint";
+import { DetailsWindow } from "details-window.slint";
+import { RecordWrapper } from "record-wrapper.slint";
 
 struct ResultItemData {
     film_name: string,
     support_color: color,
     support_type_text: string,
+    film_code: int,
+    support_code: int,
 }
 
 component ResultItemDisplay {
     in property <ResultItemData> data;
+    callback clicked <=> touchArea.clicked;
 
     HorizontalBox {
+        padding: 0px;
         spacing: 5px; // Space between icon and text
         Rectangle {
             border-width: 1px;
@@ -18,7 +24,7 @@ component ResultItemDisplay {
             //width: letter.font-metrics.width('O') + 10;
             width: 24px;
             // Why doesn't FontMetrics have height?
-            height: letter.font-metrics.ascent - letter.font-metrics.descent + 10px;
+            height: letter.font-metrics.ascent - letter.font-metrics.descent /*+ 10px*/;
             background: data.support_color;
             letter := Text {
                 width: parent.width;
@@ -34,6 +40,8 @@ component ResultItemDisplay {
             vertical-alignment: center;
         }
     }
+    touchArea := TouchArea {
+    }
 }
 
 export component AppWindow inherits Window {
@@ -42,11 +50,15 @@ export component AppWindow inherits Window {
 
     in property <string> status; // last DB update etc.
     in property <string> search_error;
+    in property <string> details_error;
     in property <[ResultItemData]> result_items;
+    in property <RecordWrapper> details_record;
 
-    callback request-increase-value();
+    private property <string> clicked-film-name;
+
     callback download-db();
     callback search(string);
+    callback item-clicked(int, int); // film code, support code
 
     VerticalBox {
         HorizontalBox {
@@ -88,10 +100,24 @@ export component AppWindow inherits Window {
             for result in result_items : ResultItemDisplay {
                 data: result;
                 width: resultListView.viewport-width;
+                clicked => {
+                    root.clicked-film-name = self.data.film-name;
+                    root.item-clicked(self.data.film-code, self.data.support-code);
+                    detailsWindow.show();
+                }
             }
             horizontal-scrollbar-policy: always-off;
             vertical-stretch: 1;
             mouse-drag-pan-enabled: true;
         }
+    }
+
+    detailsWindow := DetailsWindow {
+        film-name: root.clicked-film-name;
+        error: root.details_error;
+        record: root.details_record;
+        visible: false;
+        width: root.width;
+        height: root.height;
     }
 }

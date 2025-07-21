@@ -1,0 +1,68 @@
+import { Palette, VerticalBox } from "std-widgets.slint";
+import { RecordWrapper } from "record-wrapper.slint";
+
+export component DetailsWindow inherits PopupWindow {
+
+    in property<string> film-name;
+    in property<RecordWrapper> record;
+    in property<string> error;
+
+    // not supported; asked on the tchat - default-font-size: 20px;
+
+    // PopupWindow is transparent by default!
+    Rectangle {
+        x: 5px;
+        y: 5px;
+        height: root.height - 10px;
+        width: root.width - 10px;
+        background: white; // Palette.background;
+        border-width: 1px;
+        border-color: black;
+
+        VerticalBox {
+            alignment: start;
+
+            Text {
+                text: root.film-name;
+                wrap: word-wrap;
+                font-weight: 800; // bold
+            }
+            Text {
+                visible: !root.record.location.is-empty;
+                text: "Location: " + root.record.location;
+                wrap: word-wrap;
+            }
+            // visible: !root.record.path.is-empty;
+            // still takes space in the layout, unlike the if construct!
+            if !root.record.path.is-empty: Text {
+                text: "Path: " + root.record.path;
+                wrap: word-wrap;
+            }
+            Text {
+                visible: !root.record.isComputerFile;
+                text: "Shelf: " + root.record.shelf;
+            }
+            Text {
+                visible: !root.record.isComputerFile;
+                text: "Row: " + root.record.row;
+            }
+            Text {
+                visible: !root.record.isComputerFile;
+                text: "Position: " + root.record.position;
+            }
+            Text {
+                visible: root.record.film_code != 0;
+                text: "Year: " + (root.record.year > 0 ? root.record.year : "-");
+            }
+            Text {
+                visible: root.record.film_code != 0;
+                text: "Duration: " + (root.record.duration > 0 ? root.record.duration : "-");
+            }
+
+
+            if !root.error.is-empty: Text {
+                text: root.error;
+            }
+        }
+    }
+}

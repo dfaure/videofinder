@@ -13,6 +13,7 @@ mod sqlsearch;
 //use crate::download::download_db;
 use slint::VecModel;
 use crate::sqlsearch::sqlite_search;
+use crate::sqlsearch::sqlite_get_record;
 
 // Include the slint-generated code
 slint::include_modules!();
@@ -90,6 +91,7 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
         move |text| {
             let ui = ui_handle.unwrap();
             log::info!("searching for {:?}", text);
+            ui.set_search_error("".into());
             let start_time_sql = Instant::now();
             match sqlite_search(text.to_string()) {
                 Ok(results) => {
@@ -104,7 +106,27 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
                 },
                 Err(e) => {
                     let error_msg = format!("Error: {}", e);
+                    log::warn!("{}", error_msg);
                     ui.set_search_error(error_msg.into());
+                }
+            }
+        }
+    });
+
+    ui.on_item_clicked({
+        let ui_handle = ui.as_weak();
+        move |film_code, support_code| {
+            let ui = ui_handle.unwrap();
+            ui.set_details_error("".into());
+            log::info!("item clicked film {} support {}", film_code, support_code);
+            match sqlite_get_record(film_code, support_code) {
+                Ok(record) => {
+                    ui.set_details_record(record);
+                },
+                Err(e) => {
+                    let error_msg = format!("Error: {}", e);
+                    log::warn!("{}", error_msg);
+                    ui.set_details_error(error_msg.into());
                 }
             }
         }
