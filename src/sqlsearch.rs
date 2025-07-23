@@ -128,7 +128,7 @@ pub fn sqlite_get_record(film_code : i32, support_code : i32) -> rusqlite::Resul
                 row: row.get(2)?,
                 position: row.get(3)?,
                 location: row.get::<_, String>(4)?.into(),
-                path: row.get::<_, String>(5)?.into(),
+                path: row.get::<_, String>(5).unwrap_or(String::new()).into(),
                 // these will be set further below
                 film_code: 0,
                 duration: 0,
