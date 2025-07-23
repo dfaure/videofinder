@@ -56,9 +56,12 @@ export component DetailsWindow inherits PopupWindow {
             }
             Text {
                 visible: root.record.film_code != 0;
-                text: "Duration: " + (root.record.duration > 0 ? root.record.duration : "-");
+                text: "Duration: " + (root.record.duration > 0 ? root.record.duration + " min" : "-");
             }
 
+            for actor in root.record.actors: Text {
+                text: actor;
+            }
 
             if !root.error.is-empty: Text {
                 text: root.error;

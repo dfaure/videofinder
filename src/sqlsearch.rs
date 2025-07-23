@@ -3,7 +3,9 @@ use crate::enums::FilmType;
 use crate::download;
 use crate::ResultItemData;
 use crate::RecordWrapper;
+use std::rc::Rc;
 
+use slint::VecModel;
 use rusqlite::{Connection, OpenFlags};
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult};
 
@@ -130,6 +132,7 @@ pub fn sqlite_get_record(film_code : i32, support_code : i32) -> rusqlite::Resul
                 film_code: 0,
                 duration: 0,
                 year: 0,
+                actors: [].into(),
             })
             }
         )?;
@@ -146,6 +149,18 @@ pub fn sqlite_get_record(film_code : i32, support_code : i32) -> rusqlite::Resul
             record_wrapper.film_code = film_code;
             Ok(())
         })?;
+
+        log::info!("Doing actor query for film code {}", film_code);
+        let mut actor_query = conn.prepare("SELECT ACTOR FROM Actor WHERE code_film=?1")?;
+        let iter = actor_query.query_map([film_code], |row| row.get::<_, String>(0))?;
+
+        let mut actors : Vec<slint::SharedString> = vec![];
+        for actor in iter {
+            //log::debug!("Actor {:?}", actor?);
+            actors.push(actor?.into());
+        }
+        let model: Rc<VecModel<slint::SharedString>> = Rc::new(VecModel::from(actors));
+        record_wrapper.actors = model.into();
     }
 
     return Ok(record_wrapper);
