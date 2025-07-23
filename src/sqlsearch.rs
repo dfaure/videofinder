@@ -121,6 +121,7 @@ pub fn sqlite_get_record(film_code : i32, support_code : i32) -> rusqlite::Resul
     log::info!("Doing support query for support code {}", support_code);
     let mut record_wrapper = support_query.query_row([support_code],
         |row| {
+            //log::info!("Support row: {:?}", row);
             Ok(RecordWrapper {
                 isComputerFile: row.get::<_, SupportType>(0)? == SupportType::COMPUTERFILE,
                 shelf: row.get(1)?,
@@ -144,6 +145,7 @@ pub fn sqlite_get_record(film_code : i32, support_code : i32) -> rusqlite::Resul
         log::info!("Doing film query for film code {}", film_code);
         let mut film_query = conn.prepare("SELECT year, duration FROM Film WHERE Film.code=?1")?;
         film_query.query_row([film_code], |row| {
+            //log::info!("Film row: {:?}", row);
             record_wrapper.year = row.get(0).unwrap_or(0);
             record_wrapper.duration = row.get(1).unwrap_or(0);
             record_wrapper.film_code = film_code;
