@@ -119,5 +119,11 @@ export component AppWindow inherits Window {
         visible: false;
         width: root.width;
         height: root.height;
+        close-policy: close-on-click-outside;
+        actorClicked(name) => {
+            self.close();
+            searchLineEdit.text = name;
+            root.search(name);
+        }
     }
 }
