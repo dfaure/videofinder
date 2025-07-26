@@ -10,7 +10,7 @@ mod download;
 mod enums;
 mod sqlsearch;
 
-//use crate::download::download_db;
+use crate::download::download_db;
 use slint::VecModel;
 use crate::sqlsearch::sqlite_search;
 use crate::sqlsearch::sqlite_get_record;
@@ -31,7 +31,8 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
     log::info!("videofinder started");
     slint::android::init(app).unwrap();
     log::debug!("slint::android initialized");
-    videofinder_main()
+    test_main()
+    //videofinder_main()
 }
 
 fn show_db_status(ui: &AppWindow) {
@@ -54,37 +55,105 @@ fn show_db_status(ui: &AppWindow) {
     }
 }
 
+use std::io::Write;
+use std::os::unix::net::UnixListener;
+use std::path::PathBuf;
+use std::fs;
+
+pub fn test_main() -> Result<(), Box<dyn Error>> {
+    log::info!("test_main: starting");
+    let slint_future = async move {
+        log::info!("test_main (future): running");
+        if let Err(e) = download_db().await {
+            log::warn!("Error: {e}");
+        } else {
+            log::debug!("Download complete");
+        }
+        log::info!("test_main (future): calling quit_event_loop");
+        slint::quit_event_loop().unwrap();
+    };
+    log::info!("test_main: future created");
+
+    // Spawn the future on Slint's event loop
+    slint::spawn_local(async_compat::Compat::new(slint_future))?;
+    log::info!("test_main: after spawn_local");
+
+    // Start the event loop
+    slint::run_event_loop_until_quit()?;
+
+    log::info!("test_main: done");
+    Ok(())
+}
+
+pub fn socket_test_main() -> Result<(), Box<dyn Error>> {
+
+    let mut socket_path: PathBuf = std::env::temp_dir();
+    socket_path.push("my_app_socket");
+    log::info!("socket_test_main: {}", socket_path.display());
+
+    // Clean up any existing socket file
+    let _ = fs::remove_file(&socket_path);
+
+    // Set up a Unix domain socket listener
+    let listener = UnixListener::bind(&socket_path).unwrap();
+    log::info!("socket_test_main: listener");
+
+    let socket_path_clone = socket_path.clone();
+
+    // Spawn the server thread
+    let server = std::thread::spawn(move || {
+        let mut stream = listener.incoming().next().unwrap().unwrap();
+        stream.write_all(b"Hello World").unwrap();
+    });
+    log::info!("socket_test_main: server");
+
+    // The future that connects and reads using Tokio
+    let slint_future = async move {
+        use tokio::io::AsyncReadExt;
+        use tokio::net::UnixStream;
+
+        log::info!("socket_test_main (future): starting");
+        let mut stream = UnixStream::connect(&socket_path_clone).await.unwrap();
+        log::info!("socket_test_main (future): connected");
+        let mut data = Vec::new();
+        stream.read_to_end(&mut data).await.unwrap();
+
+        assert_eq!(data, b"Hello World");
+        log::info!("socket_test_main (future): got data, calling quit_event_loop");
+        slint::quit_event_loop().unwrap();
+    };
+
+    // Spawn the future on Slint's event loop
+    slint::spawn_local(async_compat::Compat::new(slint_future))?;
+    log::info!("socket_test_main: after spawn_local");
+
+    // Start the event loop
+    slint::run_event_loop_until_quit()?;
+
+    log::info!("socket_test_main: after run_event_loop_until_quit");
+    // Wait for the server thread to finish
+    if let Err(e) = server.join() {
+        log::warn!("socket_test_main: ERROR {:?}", e);
+    }
+    log::info!("socket_test_main: after server.join()");
+
+    // Clean up the socket file
+    let remove_result = fs::remove_file(&socket_path);
+    log::info!("socket_test_main: remove_file returned {:?}", remove_result);
+
+    Ok(())
+}
+
 pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
 
     let ui = AppWindow::new()?;
 
+    log::info!("1");
     show_db_status(&ui);
+    log::info!("2");
 
-    ui.on_download_db({
-        let ui_handle = ui.as_weak();
-        move || {
-            let ui = ui_handle.unwrap();
-            ui.set_status("Downloading...".into());
-        }
-
-        // Spawn a new thread
-        /*
-	std::thread::spawn(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async {
-
-                // log::debug!("download initiated");
-                //download_db().await;
-                // log::debug!("download finished");
-
-                // You might want to update the UI after the download completes
-                // For example, if you have a `download_complete` callback on your UI
-                // ui_handle.upgrade_in_event_loop(move |ui| {
-                //     ui.set_download_status("Completed");
-                // });
-            });
-        });*/
-    });
+    //let download_ui_handle = ui.as_weak();
+    //log::info!("3");
 
     ui.on_search({
         let ui_handle = ui.as_weak();
@@ -112,6 +181,7 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
             }
         }
     });
+    log::info!("4");
 
     ui.on_item_clicked({
         let ui_handle = ui.as_weak();
@@ -132,7 +202,111 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
         }
     });
 
+    
+    let download_handler = move || {
+        log::info!("on_download_db");
+        if let Err(e) = slint::spawn_local(async_compat::Compat::new(async move {
+            if let Err(e) = download_db().await {
+                log::warn!("Error: {e}");
+            } else {
+                log::debug!("Download complete");
+            }
+        })) {
+            log::error!("Failed to schedule download: {e}");
+        }
+    };
+    ui.on_download_db(download_handler);
+
+    /*
+    ui.on_download_db({
+        let ui_handle = ui.as_weak();
+        move || {
+            let ui_handle = ui_handle.clone();
+            log::info!("on_download_db");
+
+            if let Err(e) = slint::spawn_local(async_compat::Compat::new(async move {
+                if let Some(ui) = ui_handle.upgrade() {
+                    ui.set_status("Downloading...".into());
+                    log::debug!("downloading...");
+                    if let Err(e) = download_db().await {
+                        log::warn!("Error: {e}");
+                        ui.set_status(format!("Error: {e}").into());
+                    } else {
+                        log::debug!("Download complete");
+                        ui.set_status("Download complete".into());
+                    }
+                } else {
+                    log::warn!("UI handle invalid");
+                }
+            })) {
+                log::error!("Failed to schedule download: {e}");
+            }
+        }
+    });*/
+
+    let ui_handle = ui.as_weak();
+
+    slint::Timer::default().start(
+        slint::TimerMode::SingleShot,
+        std::time::Duration::from_millis(10),
+        move || {
+            if let Some(ui) = ui_handle.upgrade() {
+                ui.on_download_db({
+                    move || {
+                        log::info!("on_download_db");
+                        if let Err(e) = slint::spawn_local(::async_compat::Compat::new(async move {
+                            if let Err(e) = download_db().await {
+                                log::warn!("Download error: {e}");
+                            } else {
+                                log::debug!("Download complete");
+                            }
+                        })) {
+                            log::error!("Failed to schedule download: {e}");
+                        }
+                    }
+                });
+            }
+        },
+        );
+
+    log::info!("before run");
     ui.run()?;
+
+    log::info!("after run");
+    //if let Some(ui) = ui_handle.upgrade() {
+        //log::info!("setting up on_download_db");
+        //ui.on_download_db(download_handler);
+    //}
+
+            /*
+    download_ui_handle.upgrade().unwrap().on_download_db(
+        move || {
+            log::info!("downloading...");
+            let ui_handle = download_ui_handle.clone();
+
+            // Code from https://github.com/slint-ui/slint/issues/2793
+            // Spawn a Tokio task
+            //(tokio::runtime::Handle::current()).spawn(async move {
+            let result = slint::spawn_local(async move {
+
+                if let Some(ui) = ui_handle.upgrade() {
+                    ui.set_status("Downloading...".into());
+
+                    if let Err(e) = download_db().await {
+                        ui.set_status(format!("Error: {e}").into());
+                    } else {
+                        ui.set_status("Download complete".into());
+                    }
+                } else {
+                    log::warn!("UI handle is invalid");
+                }
+            });
+
+            if let Err(e) = result {
+                log::warn!("Failed to run spawn_local: {e}");
+            }
+        }
+    );*/
 
     Ok(())
 

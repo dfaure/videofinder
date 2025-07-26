@@ -14,6 +14,7 @@ thiserror = "2.0.12"
 reqwest = "0.12.22"
 flexi_logger = "0.31.2"
 log = "0.4.27"
+async-compat = "0.2.4"
 
 [build-dependencies]
 slint-build = "1.12.0"
