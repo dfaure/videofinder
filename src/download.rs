@@ -2,26 +2,7 @@ use std::io::Write;
 use std::fs::File;
 use std::path::PathBuf;
 use std::env;
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum DownloadError {
-    #[error("Local error: {0}")]
-    LocalError(String),
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("HTTP request error: {0}")]
-    HttpRequest(#[from] reqwest::Error),
-    // Add other specific errors as needed
-}
-
-// In your functions, you can then return `Result<T, DownloadError>`
-// async fn download_db() -> Result<()> {
-    // ... your download logic
-    // If a `reqwest::Error` or `std::io::Error` occurs,
-    // the `#[from]` attribute will automatically convert it to DownloadError
-    // Ok(())
-//}
+use std::error::Error;
 
 fn db_dir() -> PathBuf {
     if cfg!(target_os = "android") {
@@ -40,37 +21,71 @@ pub fn db_full_path() -> PathBuf {
     db_dir().join(db_fname())
 }
 
+use hyper::{Request, Uri};
+use hyper::client::conn;
+use hyper::header::HOST;
+use hyper::body::Bytes;
+use tokio::net::TcpStream;
+use http_body_util::BodyExt;
+use hyper_util::rt::TokioIo;
 
-pub async fn download_db() -> Result<(), DownloadError> {
+// Based on https://hyper.rs/guides/1/client/basic/
+pub async fn download_to_file(url_str: &'static str, file_path: PathBuf) -> Result<(), Box<dyn Error>> {
+    let url = url_str.parse::<Uri>()?;
+    let host = url.host().expect("uri has no host");
+    let port = url.port_u16().unwrap_or(80);
+    let address = format!("{}:{}", host, port);
+    log::info!("will get {} from {}", url, address);
+
+    let stream = TcpStream::connect(address).await?;
+    let io = TokioIo::new(stream);
+    let (mut sender, conn) = conn::http1::handshake(io).await?;
+
+    // Drive connection in background
+    tokio::spawn(async move {
+        if let Err(err) = conn.await {
+            log::info!("Connection failed: {:?}", err);
+        }
+    });
+
+    let authority = url.authority().unwrap().clone();
+    let req = Request::builder()
+        .uri(url)
+        .header(HOST, authority.as_str())
+        .body(http_body_util::Empty::<Bytes>::new())
+        .unwrap();
+
+    let mut res = sender.send_request(req).await?;
+    log::info!("Response status: {}", res.status());
+
+    let file_path_str = file_path.clone();
+    let mut dest = {
+        log::info!("will be located under: '{:?}'", file_path);
+        File::create(file_path)?
+    };
+
+    // Stream the body, writing each frame to stdout as it arrives
+    while let Some(next) = res.frame().await {
+        let frame = next?;
+        if let Some(chunk) = frame.data_ref() {
+            dest.write_all(chunk)?;
+        }
+    }
+
+    log::info!("Done downloading {}", file_path_str.display());
+    Ok(())
+}
+
+pub async fn download_db() -> Result<(), Box<dyn Error>> {
     log::info!("download_db begin");
     let target_dir = db_dir();
     if !target_dir.exists() {
         let error_msg = format!("Local dir does not exist: {}", target_dir.display());
         log::warn!("Local dir does not exist: {}", target_dir.display());
-        return Err(DownloadError::LocalError(error_msg));
+        //return Err(DownloadError::LocalError(error_msg));
+        return Err(error_msg.into());
     }
     let url = "http://www.davidfaure.fr/kvideomanager/kvideomanager.sqlite";
-    log::info!("calling reqwest::get");
-    match reqwest::get(url).await {
-        Ok(response) => {
-            log::info!("download_db {} -> dir {}", url, target_dir.display());
-            /*
-               let file_path = db_full_path();
-               let file_path_str = file_path.clone();
-               let mut dest = {
-               log::info!("will be located under: '{:?}'", file_path);
-               File::create(file_path)?
-               };
-               let content = response.bytes().await?;
-               dest.write_all(&content)?;
-               log::info!("download_db {} -> {}", url, file_path_str.display());
-               */
-            Ok(())
-        },
-        Err(e) => {
-            log::warn!("reqwest::get said Error");
-            Err(e.into())
-        }
-    }
+    let file_path = db_full_path();
+    download_to_file(url, file_path).await
 }
-
