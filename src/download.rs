@@ -16,9 +16,12 @@ fn db_dir() -> PathBuf {
 fn db_fname() -> &'static str {
     "kvideomanager.sqlite"
 }
-
 pub fn db_full_path() -> PathBuf {
     db_dir().join(db_fname())
+}
+
+pub fn filelist_full_path() -> PathBuf {
+    db_dir().join("filelist.txt")
 }
 
 use hyper::{Request, Uri};
@@ -110,5 +113,9 @@ pub async fn download_db(
     }
     let url = "http://www.davidfaure.fr/kvideomanager/kvideomanager.sqlite";
     let file_path = db_full_path();
-    download_to_file(url, file_path, progress_func).await
+    download_to_file(url, file_path, progress_func).await?;
+
+    let filelist_url = "http://www.davidfaure.fr/kvideomanager/kvideomanager.filelist.txt";
+    let dummy_fn = Box::new(|_| {});
+    download_to_file(filelist_url, filelist_full_path(), dummy_fn).await
 }
