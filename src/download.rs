@@ -29,8 +29,15 @@ use tokio::net::TcpStream;
 use http_body_util::BodyExt;
 use hyper_util::rt::TokioIo;
 
+type ProgressFunc = dyn FnMut(f32) + Send + 'static;
+
 // Based on https://hyper.rs/guides/1/client/basic/
-pub async fn download_to_file(url_str: &'static str, file_path: PathBuf) -> Result<(), Box<dyn Error>> {
+pub async fn download_to_file(
+    url_str: &'static str,
+    file_path: PathBuf,
+    mut progress_func: Box<ProgressFunc>,
+    ) -> Result<(), Box<dyn Error>>
+{
     let url = url_str.parse::<Uri>()?;
     let host = url.host().expect("uri has no host");
     let port = url.port_u16().unwrap_or(80);
@@ -64,11 +71,25 @@ pub async fn download_to_file(url_str: &'static str, file_path: PathBuf) -> Resu
         File::create(file_path)?
     };
 
+    let mut downloaded = 0u64;
+
+    let total_size = res
+        .headers()
+        .get("content-length")                 // Get the header value
+        .and_then(|h| h.to_str().ok())         // Convert from HeaderValue to &str
+        .and_then(|s| s.parse::<u64>().ok());  // Parse it to a u64
+    log::info!("Content length: {:?}", total_size);
+
     // Stream the body, writing each frame to stdout as it arrives
     while let Some(next) = res.frame().await {
         let frame = next?;
         if let Some(chunk) = frame.data_ref() {
             dest.write_all(chunk)?;
+            downloaded += chunk.len() as u64;
+             if let Some(total) = total_size {
+                let progress = downloaded as f32 / total as f32;
+                progress_func(progress); // UI callback
+            }
         }
     }
 
@@ -76,7 +97,9 @@ pub async fn download_to_file(url_str: &'static str, file_path: PathBuf) -> Resu
     Ok(())
 }
 
-pub async fn download_db() -> Result<(), Box<dyn Error>> {
+pub async fn download_db(
+    progress_func: Box<ProgressFunc>,
+) -> Result<(), Box<dyn Error>> {
     log::info!("download_db begin");
     let target_dir = db_dir();
     if !target_dir.exists() {
@@ -87,5 +110,5 @@ pub async fn download_db() -> Result<(), Box<dyn Error>> {
     }
     let url = "http://www.davidfaure.fr/kvideomanager/kvideomanager.sqlite";
     let file_path = db_full_path();
-    download_to_file(url, file_path).await
+    download_to_file(url, file_path, progress_func).await
 }

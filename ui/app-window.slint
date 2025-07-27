@@ -1,4 +1,4 @@
-import { Button, HorizontalBox, LineEdit, ListView, StandardListView, VerticalBox } from "std-widgets.slint";
+import { Button, HorizontalBox, LineEdit, ListView, ProgressIndicator, StandardListView, VerticalBox } from "std-widgets.slint";
 import { DetailsWindow } from "details-window.slint";
 import { RecordWrapper } from "record-wrapper.slint";
 
@@ -53,6 +53,7 @@ export component AppWindow inherits Window {
     in property <string> details_error;
     in property <[ResultItemData]> result_items;
     in property <RecordWrapper> details_record;
+    in property <float> progress: 0;
 
     private property <string> clicked-film-name;
 
@@ -77,19 +78,26 @@ export component AppWindow inherits Window {
             }
         }
         if searchLineEdit.text.is-empty : HorizontalBox {
-            HorizontalBox {
-                alignment: start;
-                Text {
-                    text: "\{root.status}";
-                    vertical-alignment: center;
+            VerticalBox {
+                HorizontalBox {
+                    alignment: start;
+                    Text {
+                        text: "\{root.status}";
+                        vertical-alignment: center;
+                    }
+
+                    Button {
+                        icon: @image-url("icons/reload.png");
+                        clicked => {
+                            root.download-db();
+                        }
+                        min-height: searchLineEdit.min-height;
+                    }
                 }
 
-                Button {
-                    icon: @image-url("icons/reload.png");
-                    clicked => {
-                        root.download-db();
-                    }
-                    min-height: searchLineEdit.min-height;
+                ProgressIndicator {
+                    progress: root.progress;
+                    visible: root.progress > 0;
                 }
             }
         }

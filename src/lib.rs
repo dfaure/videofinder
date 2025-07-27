@@ -33,7 +33,6 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
     slint::android::init(app).unwrap();
     log::debug!("slint::android initialized");
     let ret = videofinder_main();
-    log::debug!("test_main returned");
     if let Err(ref e) = ret {
         log::error!("{:?}", e);
     }
@@ -127,12 +126,19 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
 
     ui.on_download_db({
         let ui_handle = ui.as_weak();
+
         move || {
             let ui_handle = ui_handle.clone();
+            let ui_handle_for_progress = ui_handle.clone();
+            let progress_func = Box::new(move |progress: f32| {
+                if let Some(ui) = ui_handle_for_progress.upgrade() {
+                    ui.set_progress(progress);
+                }
+            });
             log::info!("on_download_db");
             if let Err(e) = slint::spawn_local(async_compat::Compat::new(async move {
                 let ui = ui_handle.unwrap();
-                if let Err(e) = download_db().await {
+                if let Err(e) = download_db(progress_func).await {
                     log::warn!("Download error: {e}");
                     ui.set_status(format!("Download error: {}", e).into());
                 } else {
