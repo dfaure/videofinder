@@ -5,6 +5,7 @@ use std::error::Error;
 use std::fs::File;
 use std::rc::Rc; // "reference counted"
 use std::time::Instant;
+use chrono::{DateTime, Local};
 
 mod download;
 mod enums;
@@ -47,8 +48,21 @@ fn show_db_status(ui: &AppWindow) {
     } else {
         // Check if readable, to debug permission problems on Android
         match File::open(db_full_path) {
-            Ok(_) => {
-                ui.set_status("DB last updated: never".into());
+            Ok(file) => {
+                match file.metadata() {
+                    Ok(metadata) => {
+                        if let Ok(modified) = metadata.modified() {
+                            let datetime: DateTime<Local> = modified.into();
+                            let time_str = format!("DB last updated: {}", datetime.format("%d/%m/%Y %H:%M:%S"));
+                            ui.set_status(time_str.into());
+                            return;
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to get metadata: {}", e);
+                    }
+                }
+                ui.set_status("DB last updated: unknown".into());
             },
             Err(e) => {
                 log::error!("File::open failed: {}", e);
@@ -119,10 +133,12 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
             if let Err(e) = slint::spawn_local(async_compat::Compat::new(async move {
                 let ui = ui_handle.unwrap();
                 if let Err(e) = download_db().await {
-                    log::warn!("Error: {e}");
+                    log::warn!("Download error: {e}");
+                    ui.set_status(format!("Download error: {}", e).into());
                 } else {
                     log::debug!("Download complete");
                     ui.set_status("Download complete".into());
+                    show_db_status(&ui);
                 }
             })) {
                 log::error!("Failed to schedule download: {e}");
