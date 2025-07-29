@@ -44,7 +44,17 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
     ret
 }
 
-fn show_db_status(ui: &AppWindow, image_for_dir_hash: &mut ImageForDirHash) {
+struct App {
+    ui: AppWindow,
+    image_for_dir_hash: ImageForDirHash,
+}
+
+impl App {
+fn show_db_status(&mut self) {
+
+    let ui = &self.ui;
+    let image_for_dir_hash = &mut self.image_for_dir_hash;
+
     let db_full_path = download::db_full_path();
     if !db_full_path.exists() {
         let status = format!("DB file does not exist: {}", db_full_path.display());
@@ -80,29 +90,17 @@ fn show_db_status(ui: &AppWindow, image_for_dir_hash: &mut ImageForDirHash) {
         }
     }
 }
-
-struct App {
-    ui: AppWindow,
-    image_for_dir_hash: Rc<RefCell<ImageForDirHash>>,
 }
 
-pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
+// This needs a ref to Rc, so it's not an impl for App (self wouldn't be a Rc)
+fn setup_ui(app: &Rc<RefCell<App>>) {
 
-    std::panic::set_hook(Box::new(|info| {
-        log::error!("Panic occurred: {}", info);
-    }));
+    log::debug!("setup_ui start");
 
-    let app = App {
-        ui: AppWindow::new()?,
-        // Can't do that because we're modifying it from the async task (see spawn_local)
-        // image_for_dir_hash: ImageForDirHash::new();
-        image_for_dir_hash: Rc::new(RefCell::new(ImageForDirHash::new())),
-    };
-
-    show_db_status(&app.ui, &mut *app.image_for_dir_hash.borrow_mut());
-
-    app.ui.on_search({
-        let ui_handle = app.ui.as_weak();
+    app.borrow_mut().show_db_status();
+    let app_ref = app.borrow();
+    app_ref.ui.on_search({
+        let ui_handle = app_ref.ui.as_weak();
         move |text| {
             let ui = ui_handle.unwrap();
             log::info!("searching for {:?}", text);
@@ -128,10 +126,10 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    app.ui.on_item_clicked({
+    app_ref.ui.on_item_clicked({
         // executed immediately
-        let ui_handle = app.ui.as_weak();
-        let hash_ref = app.image_for_dir_hash.clone(); // clone the Rc (not the hash)
+        let ui_handle = app_ref.ui.as_weak();
+        let cloned_app_ref = app.clone(); // clone the Rc
         move |film_code, support_code| {
             // executed on click
             let ui = ui_handle.unwrap();
@@ -139,7 +137,7 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
             log::info!("item clicked film {} support {}", film_code, support_code);
             match sqlite_get_record(film_code, support_code) {
                 Ok((mut record, image_path)) => {
-                    record.image_url = image_url(image_path, &hash_ref.borrow()).into();
+                    record.image_url = image_url(image_path, &cloned_app_ref.borrow().image_for_dir_hash).into();
                     ui.set_details_record(record);
                 },
                 Err(e) => {
@@ -151,16 +149,16 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    app.ui.on_download_db({
+    app_ref.ui.on_download_db({
         // executed immediately
-        let ui_handle = app.ui.as_weak();
-        let hash_ref = app.image_for_dir_hash.clone(); // clone the Rc (not the hash)
+        let ui_handle = app_ref.ui.as_weak();
+        let cloned_app_ref = app.clone(); // clone the Rc
 
         move || {
             // executed on click
             ui_handle.unwrap().set_status("Downloading...".into());
             // local vars for move-captures
-            let hash_ref = hash_ref.clone();
+            let cloned_app_ref = cloned_app_ref.clone();
             let ui_handle = ui_handle.clone();
             let ui_handle_for_progress = ui_handle.clone();
             let progress_func = Box::new(move |progress: f32| {
@@ -177,15 +175,35 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
                 } else {
                     log::debug!("Download complete");
                     ui.set_status("Download complete".into());
-                    let mut hash = hash_ref.borrow_mut(); // mutable borrow from RefCell
-                    show_db_status(&ui, &mut *hash);
+                    let mut app = cloned_app_ref.borrow_mut();
+                    app.show_db_status();
                 }
             })) {
                 log::error!("Failed to schedule download: {e}");
             }
         }
     });
+    log::debug!("setup_ui end");
+}
 
-    app.ui.run()?;
+pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
+
+    std::panic::set_hook(Box::new(|info| {
+        log::error!("Panic occurred: {}", info);
+    }));
+
+    // Use Rc<RefCell>> because we're modifying image_for_dir_hash from the async task (see spawn_local)
+    let app = Rc::new(RefCell::new(App {
+        ui: AppWindow::new()?,
+        image_for_dir_hash: ImageForDirHash::new(),
+    }));
+
+    // The setup_ui function provides a scope for app_ref (to avoid writing app.borrow() 50 times)
+    setup_ui(&app);
+
+    // Grab a ref to UI using a temporary app.borrow (which MUST be released before calling run())
+    let ui_ref = app.borrow().ui.as_weak();
+    log::debug!("calling run");
+    ui_ref.unwrap().run()?;
     Ok(())
 }
