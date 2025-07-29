@@ -95,6 +95,10 @@ export component DetailsWindow inherits PopupWindow {
                 clicked(s) => { root.actorClicked(s); }
             }
 
+            if !root.record.image-url.is-empty: Text {
+                text: root.record.image-url;
+            }
+
             if !root.error.is-empty: Text {
                 text: root.error;
             }

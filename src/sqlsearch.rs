@@ -115,7 +115,7 @@ pub fn sqlite_search(text : String) -> rusqlite::Result<Vec<ResultItemData>> {
     Ok(results)
 }
 
-pub fn sqlite_get_record(film_code : i32, support_code : i32) -> rusqlite::Result<RecordWrapper> {
+pub fn sqlite_get_record(film_code : i32, support_code : i32) -> rusqlite::Result<(RecordWrapper, Option<String>)> {
     let conn = Connection::open_with_flags(download::db_full_path(), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     let mut support_query = conn.prepare("SELECT type, shelf, row, position, location, path FROM Tape WHERE Tape.code_tape=?1")?;
     log::info!("Doing support query for support code {}", support_code);
@@ -134,13 +134,15 @@ pub fn sqlite_get_record(film_code : i32, support_code : i32) -> rusqlite::Resul
                 duration: 0,
                 year: 0,
                 actors: [].into(),
+                image_url: "".into(),
             })
             }
         )?;
     if record_wrapper.isComputerFile {
-        return Ok(record_wrapper);
+        return Ok((record_wrapper, None));
     }
 
+    let mut image_path : Option<String> = None;
     if film_code != 0 {
         log::info!("Doing film query for film code {}", film_code);
         let mut film_query = conn.prepare("SELECT year, duration FROM Film WHERE Film.code=?1")?;
@@ -163,8 +165,17 @@ pub fn sqlite_get_record(film_code : i32, support_code : i32) -> rusqlite::Resul
         }
         let model: Rc<VecModel<slint::SharedString>> = Rc::new(VecModel::from(actors));
         record_wrapper.actors = model.into();
+
+        log::info!("Doing image query for film code {}", film_code);
+        let mut image_query = conn.prepare("SELECT N_IMAGE FROM Image WHERE code_film=?1")?;
+        image_query.query_row([film_code], |row| {
+            //log::debug!("Image row {:?}", row);
+            image_path = Some(row.get(0)?);
+            log::debug!("image_path: {:?}", image_path);
+            Ok(())
+        })?;
     }
 
-    return Ok(record_wrapper);
+    return Ok((record_wrapper, image_path));
 }
 

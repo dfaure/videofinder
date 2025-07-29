@@ -4,14 +4,19 @@
 use std::error::Error;
 use std::fs::File;
 use std::rc::Rc; // "reference counted"
+use std::cell::RefCell;
 use std::time::Instant;
 use chrono::{DateTime, Local};
 
 mod download;
 mod enums;
 mod sqlsearch;
+mod image_handling;
 
 use crate::download::download_db;
+use crate::download::parse_file_list;
+use crate::download::ImageForDirHash;
+use crate::image_handling::image_url;
 use slint::VecModel;
 use crate::sqlsearch::sqlite_search;
 use crate::sqlsearch::sqlite_get_record;
@@ -39,7 +44,7 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
     ret
 }
 
-fn show_db_status(ui: &AppWindow) {
+fn show_db_status(ui: &AppWindow, image_for_dir_hash: &mut ImageForDirHash) {
     let db_full_path = download::db_full_path();
     if !db_full_path.exists() {
         let status = format!("DB file does not exist: {}", db_full_path.display());
@@ -54,6 +59,10 @@ fn show_db_status(ui: &AppWindow) {
                             let datetime: DateTime<Local> = modified.into();
                             let time_str = format!("DB last updated: {}", datetime.format("%d/%m/%Y %H:%M:%S"));
                             ui.set_status(time_str.into());
+
+                            if let Ok(hash) = parse_file_list() {
+                                *image_for_dir_hash = hash;
+                            }
                             return;
                         }
                     }
@@ -74,9 +83,17 @@ fn show_db_status(ui: &AppWindow) {
 
 pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
 
+    std::panic::set_hook(Box::new(|info| {
+        log::error!("Panic occurred: {}", info);
+    }));
+
     let ui = AppWindow::new()?;
 
-    show_db_status(&ui);
+    // Can't do that because we're modifying it from the async task (see spawn_local)
+    //let mut image_for_dir_hash = ImageForDirHash::new();
+    let image_for_dir_hash = Rc::new(RefCell::new(ImageForDirHash::new()));
+
+    show_db_status(&ui, &mut *image_for_dir_hash.borrow_mut());
 
     ui.on_search({
         let ui_handle = ui.as_weak();
@@ -107,12 +124,14 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
 
     ui.on_item_clicked({
         let ui_handle = ui.as_weak();
+        let hash_ref = image_for_dir_hash.clone(); // clone the Rc (not the hash)
         move |film_code, support_code| {
             let ui = ui_handle.unwrap();
             ui.set_details_error("".into());
             log::info!("item clicked film {} support {}", film_code, support_code);
             match sqlite_get_record(film_code, support_code) {
-                Ok(record) => {
+                Ok((mut record, image_path)) => {
+                    record.image_url = image_url(image_path, &hash_ref.borrow()).into();
                     ui.set_details_record(record);
                 },
                 Err(e) => {
@@ -125,9 +144,15 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
     });
 
     ui.on_download_db({
+        // executed immediately
         let ui_handle = ui.as_weak();
+        let hash_ref = image_for_dir_hash.clone(); // clone the Rc (not the hash)
 
         move || {
+            // executed on click
+            ui_handle.unwrap().set_status("Downloading...".into());
+            // local vars for move-captures
+            let hash_ref = hash_ref.clone();
             let ui_handle = ui_handle.clone();
             let ui_handle_for_progress = ui_handle.clone();
             let progress_func = Box::new(move |progress: f32| {
@@ -144,7 +169,8 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
                 } else {
                     log::debug!("Download complete");
                     ui.set_status("Download complete".into());
-                    show_db_status(&ui);
+                    let mut hash = hash_ref.borrow_mut(); // mutable borrow from RefCell
+                    show_db_status(&ui, &mut *hash);
                 }
             })) {
                 log::error!("Failed to schedule download: {e}");

@@ -100,6 +100,36 @@ pub async fn download_to_file(
     Ok(())
 }
 
+use std::io::BufReader;
+use std::io::BufRead;
+
+pub type ImageForDirHash = std::collections::HashMap<PathBuf, PathBuf>;
+pub fn parse_file_list() -> Result<ImageForDirHash, Box<dyn Error>>
+{
+    log::debug!("parse_file_list");
+    match File::open(filelist_full_path()) {
+        Ok(file) => {
+            let mut hash = ImageForDirHash::new();
+            let lines = BufReader::new(file).lines();
+            for line in lines {
+                let line = line?;
+                if let Some(pos) = line.rfind('/') {
+                    let (dir, file_name) = line.split_at(pos);
+                    let file_name = &file_name[1..]; // skip leading '/'
+                    let dir_path = PathBuf::from(dir);
+                    hash.entry(dir_path).or_insert(PathBuf::from(file_name));
+                }
+            }
+            //log::debug!("{:?}", hash);
+            Ok(hash)
+        },
+        Err(e) => {
+            log::warn!("{:?}", e);
+            Err(Box::new(e))
+        }
+    }
+}
+
 pub async fn download_db(
     progress_func: Box<ProgressFunc>,
 ) -> Result<(), Box<dyn Error>> {
@@ -117,5 +147,6 @@ pub async fn download_db(
 
     let filelist_url = "http://www.davidfaure.fr/kvideomanager/kvideomanager.filelist.txt";
     let dummy_fn = Box::new(|_| {});
-    download_to_file(filelist_url, filelist_full_path(), dummy_fn).await
+    let file_list_path = filelist_full_path();
+    download_to_file(filelist_url, file_list_path, dummy_fn).await
 }
