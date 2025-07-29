@@ -81,22 +81,28 @@ fn show_db_status(ui: &AppWindow, image_for_dir_hash: &mut ImageForDirHash) {
     }
 }
 
+struct App {
+    ui: AppWindow,
+    image_for_dir_hash: Rc<RefCell<ImageForDirHash>>,
+}
+
 pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
 
     std::panic::set_hook(Box::new(|info| {
         log::error!("Panic occurred: {}", info);
     }));
 
-    let ui = AppWindow::new()?;
+    let app = App {
+        ui: AppWindow::new()?,
+        // Can't do that because we're modifying it from the async task (see spawn_local)
+        // image_for_dir_hash: ImageForDirHash::new();
+        image_for_dir_hash: Rc::new(RefCell::new(ImageForDirHash::new())),
+    };
 
-    // Can't do that because we're modifying it from the async task (see spawn_local)
-    //let mut image_for_dir_hash = ImageForDirHash::new();
-    let image_for_dir_hash = Rc::new(RefCell::new(ImageForDirHash::new()));
+    show_db_status(&app.ui, &mut *app.image_for_dir_hash.borrow_mut());
 
-    show_db_status(&ui, &mut *image_for_dir_hash.borrow_mut());
-
-    ui.on_search({
-        let ui_handle = ui.as_weak();
+    app.ui.on_search({
+        let ui_handle = app.ui.as_weak();
         move |text| {
             let ui = ui_handle.unwrap();
             log::info!("searching for {:?}", text);
@@ -122,10 +128,12 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    ui.on_item_clicked({
-        let ui_handle = ui.as_weak();
-        let hash_ref = image_for_dir_hash.clone(); // clone the Rc (not the hash)
+    app.ui.on_item_clicked({
+        // executed immediately
+        let ui_handle = app.ui.as_weak();
+        let hash_ref = app.image_for_dir_hash.clone(); // clone the Rc (not the hash)
         move |film_code, support_code| {
+            // executed on click
             let ui = ui_handle.unwrap();
             ui.set_details_error("".into());
             log::info!("item clicked film {} support {}", film_code, support_code);
@@ -143,10 +151,10 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    ui.on_download_db({
+    app.ui.on_download_db({
         // executed immediately
-        let ui_handle = ui.as_weak();
-        let hash_ref = image_for_dir_hash.clone(); // clone the Rc (not the hash)
+        let ui_handle = app.ui.as_weak();
+        let hash_ref = app.image_for_dir_hash.clone(); // clone the Rc (not the hash)
 
         move || {
             // executed on click
@@ -178,6 +186,6 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    ui.run()?;
+    app.ui.run()?;
     Ok(())
 }
