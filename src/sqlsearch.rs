@@ -168,12 +168,12 @@ pub fn sqlite_get_record(film_code : i32, support_code : i32) -> rusqlite::Resul
 
         log::info!("Doing image query for film code {}", film_code);
         let mut image_query = conn.prepare("SELECT N_IMAGE FROM Image WHERE code_film=?1")?;
-        image_query.query_row([film_code], |row| {
+        let _ = image_query.query_row([film_code], |row| {
             //log::debug!("Image row {:?}", row);
             image_path = Some(row.get(0)?);
             log::debug!("image_path: {:?}", image_path);
             Ok(())
-        })?;
+        }); // no ? here, ignore errors
     }
 
     return Ok((record_wrapper, image_path));

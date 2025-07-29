@@ -91,7 +91,38 @@ fn show_db_status(&mut self) {
         }
     }
 }
+
+fn on_download_finished(&mut self, result: Result<(), Box<dyn Error>>) {
+    if let Err(e) = result {
+        log::warn!("Download error: {e}");
+        self.ui.set_status(format!("Download error: {}", e).into());
+    } else {
+        log::debug!("Download complete");
+        self.ui.set_status("Download complete".into());
+        self.show_db_status();
+    }
 }
+
+fn open_details_window(&mut self, film_code: i32, support_code: i32) {
+    self.ui.set_details_error("".into());
+    self.cancel_image_downloads();
+    log::info!("item clicked film {} support {}", film_code, support_code);
+    match sqlite_get_record(film_code, support_code) {
+        Ok((record, image_path)) => {
+            self.ui.set_details_record(record);
+            let image_url = image_url(image_path, &self.image_for_dir_hash);
+            if !image_url.is_empty() {
+                self.download_image(image_url);
+            }
+        },
+        Err(e) => {
+            let error_msg = format!("Error: {}", e);
+            log::warn!("{}", error_msg);
+            self.ui.set_details_error(error_msg.into());
+        }
+    }
+}
+} // impl
 
 // This needs a ref to Rc, so it's not an impl for App (self wouldn't be a Rc)
 fn setup_ui(app: &Rc<RefCell<App>>) {
@@ -99,8 +130,8 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
     app_ref.ui.on_search({
         let ui_handle = app_ref.ui.as_weak();
         move |text| {
-            let ui = ui_handle.unwrap();
             log::info!("searching for {:?}", text);
+            let ui = ui_handle.unwrap();
             ui.set_search_error("".into());
             let start_time_sql = Instant::now();
             match sqlite_search(text.to_string()) {
@@ -125,71 +156,42 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
 
     app_ref.ui.on_item_clicked({
         // executed immediately
-        let ui_handle = app_ref.ui.as_weak();
-        let cloned_app_ref = app.clone(); // clone the Rc
+        let app_rc = app.clone(); // clone the Rc
         move |film_code, support_code| {
             // executed on click
-            let ui = ui_handle.unwrap();
-            ui.set_details_error("".into());
-            cloned_app_ref.borrow_mut().cancel_image_downloads();
-            log::info!("item clicked film {} support {}", film_code, support_code);
-            match sqlite_get_record(film_code, support_code) {
-                Ok((record, image_path)) => {
-                    ui.set_details_record(record);
-                    let image_url = image_url(image_path, &cloned_app_ref.borrow().image_for_dir_hash);
-                    if !image_url.is_empty() {
-                        cloned_app_ref.borrow().download_image(image_url);
-                    }
-                },
-                Err(e) => {
-                    let error_msg = format!("Error: {}", e);
-                    log::warn!("{}", error_msg);
-                    ui.set_details_error(error_msg.into());
-                }
-            }
+            app_rc.borrow_mut().open_details_window(film_code, support_code);
+
         }
     });
 
     app_ref.ui.on_notify_details_window_closed({
         // executed immediately
-        let cloned_app_ref = app.clone(); // clone the Rc
+        let app_rc = app.clone(); // clone the Rc
         move || {
             // executed when closing the details window
-            cloned_app_ref.borrow_mut().cancel_image_downloads();
+            app_rc.borrow_mut().cancel_image_downloads();
         }
     });
 
     app_ref.ui.on_download_db({
         // executed immediately
-        let ui_handle = app_ref.ui.as_weak();
-        let cloned_app_ref = app.clone(); // clone the Rc
+        let app_rc = app.clone(); // clone the Rc
 
         move || {
             // executed on click
-            ui_handle.unwrap().set_status("Downloading...".into());
+            app_rc.borrow().ui.set_status("Downloading...".into());
             // local vars for move-captures
-            let cloned_app_ref = cloned_app_ref.clone();
-            let ui_handle = ui_handle.clone();
-            let ui_handle_for_progress = ui_handle.clone();
+            let app_rc = app_rc.clone();
+            let app_rc_for_progress = app_rc.clone();
             let progress_func = Box::new(move |progress: f32| {
-                if let Some(ui) = ui_handle_for_progress.upgrade() {
-                    ui.set_progress(progress);
-                }
+                app_rc_for_progress.borrow().ui.set_progress(progress);
             });
             log::info!("on_download_db");
             if let Err(e) = slint::spawn_local(async_compat::Compat::new(async move {
-                let ui = ui_handle.unwrap();
-                ui.set_download_enabled(false); // prevent re-entrancy
-                if let Err(e) = download_db(progress_func).await {
-                    log::warn!("Download error: {e}");
-                    ui.set_status(format!("Download error: {}", e).into());
-                } else {
-                    log::debug!("Download complete");
-                    ui.set_status("Download complete".into());
-                    let mut app = cloned_app_ref.borrow_mut();
-                    app.show_db_status();
-                }
-                ui.set_download_enabled(true);
+                app_rc.borrow().ui.set_download_enabled(false); // prevent re-entrancy
+                let result = download_db(progress_func).await;
+                app_rc.borrow_mut().on_download_finished(result);
+                app_rc.borrow().ui.set_download_enabled(true);
             })) {
                 log::error!("Failed to schedule download: {e}");
             }

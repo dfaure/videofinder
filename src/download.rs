@@ -32,7 +32,7 @@ use tokio::net::TcpStream;
 use http_body_util::BodyExt;
 use hyper_util::rt::TokioIo;
 
-type ProgressFunc = dyn FnMut(f32) + Send + 'static;
+type ProgressFunc = dyn FnMut(f32) + 'static;
 
 // Based on https://hyper.rs/guides/1/client/basic/
 pub async fn download_to_file(
