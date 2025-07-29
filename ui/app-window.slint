@@ -61,6 +61,7 @@ export component AppWindow inherits Window {
     callback download-db();
     callback search(string);
     callback item-clicked(int, int); // film code, support code
+    callback notify_details_window_closed();
 
     VerticalBox {
         HorizontalBox {
@@ -131,9 +132,11 @@ export component AppWindow inherits Window {
         height: root.height;
         close-policy: close-on-click-outside;
         actorClicked(name) => {
-            self.close();
             searchLineEdit.text = name;
             root.search(name);
+        }
+        notifyClosed() => {
+            root.notify_details_window_closed();
         }
     }
 }

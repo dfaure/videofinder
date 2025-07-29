@@ -47,6 +47,7 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
 struct App {
     ui: AppWindow,
     image_for_dir_hash: ImageForDirHash,
+    current_image_download_url: Option<String>,
 }
 
 impl App {
@@ -130,11 +131,15 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
             // executed on click
             let ui = ui_handle.unwrap();
             ui.set_details_error("".into());
+            cloned_app_ref.borrow_mut().cancel_image_downloads();
             log::info!("item clicked film {} support {}", film_code, support_code);
             match sqlite_get_record(film_code, support_code) {
-                Ok((mut record, image_path)) => {
-                    record.image_url = image_url(image_path, &cloned_app_ref.borrow().image_for_dir_hash).into();
+                Ok((record, image_path)) => {
                     ui.set_details_record(record);
+                    let image_url = image_url(image_path, &cloned_app_ref.borrow().image_for_dir_hash);
+                    if !image_url.is_empty() {
+                        cloned_app_ref.borrow().download_image(image_url);
+                    }
                 },
                 Err(e) => {
                     let error_msg = format!("Error: {}", e);
@@ -142,6 +147,15 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
                     ui.set_details_error(error_msg.into());
                 }
             }
+        }
+    });
+
+    app_ref.ui.on_notify_details_window_closed({
+        // executed immediately
+        let cloned_app_ref = app.clone(); // clone the Rc
+        move || {
+            // executed when closing the details window
+            cloned_app_ref.borrow_mut().cancel_image_downloads();
         }
     });
 
@@ -193,6 +207,7 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
     let app = Rc::new(RefCell::new(App {
         ui: AppWindow::new()?,
         image_for_dir_hash: ImageForDirHash::new(),
+        current_image_download_url: None,
     }));
 
     // Show initial status and fill in image_for_dir_hash if the file is already present

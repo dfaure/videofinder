@@ -25,6 +25,7 @@ export component DetailsWindow inherits PopupWindow {
     in property<RecordWrapper> record;
     in property<string> error;
     callback actorClicked(string);
+    callback notifyClosed();
 
     // not supported; asked on the tchat - default-font-size: 20px;
 
@@ -43,7 +44,10 @@ export component DetailsWindow inherits PopupWindow {
             source: @image-url("icons/dismiss.svg");
             colorize: Palette.foreground;
             TouchArea {
-                clicked => { root.close(); }
+                clicked => {
+                    root.notifyClosed();
+                    root.close();
+                }
             }
             x: contents.width - self.width - 5px;
             y: 5px;
@@ -92,9 +96,14 @@ export component DetailsWindow inherits PopupWindow {
 
             for actor in root.record.actors: ActorLabel {
                 text: actor;
-                clicked(s) => { root.actorClicked(s); }
+                clicked(s) => {
+                    root.notifyClosed();
+                    root.close();
+                    root.actorClicked(s);
+                }
             }
 
+            // TODO replace with Image
             if !root.record.image-url.is-empty: Text {
                 text: root.record.image-url;
             }
