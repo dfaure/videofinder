@@ -94,10 +94,6 @@ fn show_db_status(&mut self) {
 
 // This needs a ref to Rc, so it's not an impl for App (self wouldn't be a Rc)
 fn setup_ui(app: &Rc<RefCell<App>>) {
-
-    log::debug!("setup_ui start");
-
-    app.borrow_mut().show_db_status();
     let app_ref = app.borrow();
     app_ref.ui.on_search({
         let ui_handle = app_ref.ui.as_weak();
@@ -169,6 +165,7 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
             log::info!("on_download_db");
             if let Err(e) = slint::spawn_local(async_compat::Compat::new(async move {
                 let ui = ui_handle.unwrap();
+                ui.set_download_enabled(false); // prevent re-entrancy
                 if let Err(e) = download_db(progress_func).await {
                     log::warn!("Download error: {e}");
                     ui.set_status(format!("Download error: {}", e).into());
@@ -178,12 +175,12 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
                     let mut app = cloned_app_ref.borrow_mut();
                     app.show_db_status();
                 }
+                ui.set_download_enabled(true);
             })) {
                 log::error!("Failed to schedule download: {e}");
             }
         }
     });
-    log::debug!("setup_ui end");
 }
 
 pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
@@ -197,6 +194,9 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
         ui: AppWindow::new()?,
         image_for_dir_hash: ImageForDirHash::new(),
     }));
+
+    // Show initial status and fill in image_for_dir_hash if the file is already present
+    app.borrow_mut().show_db_status();
 
     // The setup_ui function provides a scope for app_ref (to avoid writing app.borrow() 50 times)
     setup_ui(&app);

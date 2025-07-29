@@ -54,6 +54,7 @@ export component AppWindow inherits Window {
     in property <[ResultItemData]> result_items;
     in property <RecordWrapper> details_record;
     in property <float> progress: 0;
+    in property <bool> download_enabled: true;
 
     private property <string> clicked-film-name;
 
@@ -92,6 +93,7 @@ export component AppWindow inherits Window {
                             root.download-db();
                         }
                         min-height: searchLineEdit.min-height;
+                        visible: root.download_enabled;
                     }
                 }
 
