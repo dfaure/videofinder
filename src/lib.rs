@@ -17,6 +17,7 @@ use crate::download::download_db;
 use crate::download::parse_file_list;
 use crate::download::ImageForDirHash;
 use crate::image_handling::image_url;
+use crate::image_handling::download_image;
 use slint::VecModel;
 use crate::sqlsearch::sqlite_search;
 use crate::sqlsearch::sqlite_get_record;
@@ -103,22 +104,20 @@ fn on_download_finished(&mut self, result: Result<(), Box<dyn Error>>) {
     }
 }
 
-fn open_details_window(&mut self, film_code: i32, support_code: i32) {
+fn open_details_window(&mut self, film_code: i32, support_code: i32) -> String {
     self.ui.set_details_error("".into());
     self.cancel_image_downloads();
     log::info!("item clicked film {} support {}", film_code, support_code);
     match sqlite_get_record(film_code, support_code) {
         Ok((record, image_path)) => {
             self.ui.set_details_record(record);
-            let image_url = image_url(image_path, &self.image_for_dir_hash);
-            if !image_url.is_empty() {
-                self.download_image(image_url);
-            }
+            image_url(image_path, &self.image_for_dir_hash)
         },
         Err(e) => {
             let error_msg = format!("Error: {}", e);
             log::warn!("{}", error_msg);
             self.ui.set_details_error(error_msg.into());
+            String::new()
         }
     }
 }
@@ -159,7 +158,10 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
         let app_rc = app.clone(); // clone the Rc
         move |film_code, support_code| {
             // executed on click
-            app_rc.borrow_mut().open_details_window(film_code, support_code);
+            let image_url = app_rc.borrow_mut().open_details_window(film_code, support_code);
+            if !image_url.is_empty() {
+                download_image(&app_rc, image_url);
+            }
 
         }
     });

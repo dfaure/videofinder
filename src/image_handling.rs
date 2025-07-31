@@ -1,6 +1,9 @@
 use anyhow::anyhow;
 use std::path::PathBuf;
-//use crate::AppWindow;
+use crate::download::download_image_data;
+use crate::Rc;
+use crate::RefCell;
+use crate::App;
 
 fn relative_path(path : &str) -> anyhow::Result<&str> {
     let prefixes = [
@@ -38,13 +41,30 @@ pub fn image_url(
         .unwrap_or_default() // If anything fails, return empty string
 }
 
-impl crate::App {
-pub fn download_image(&self, url: String) {
+pub fn download_image(app_rc: &Rc<RefCell<App>>, url: String) {
     log::debug!("download_image({})", url);
+    app_rc.borrow_mut().current_image_download_url = Some(url.clone());
+    let app_rc = app_rc.clone();
+    if let Err(e) = slint::spawn_local(async_compat::Compat::new(async move {
+        let result = download_image_data(url.clone()).await;
+        if let Ok(image) = result {
+            if Some(url) == app_rc.borrow().current_image_download_url {
+                // if still relevant...
+                app_rc.borrow_mut().on_image_downloaded(image);
+            }
+        }
+    })) {
+        log::error!("Failed to schedule download: {e}");
+    }
 }
 
-pub fn cancel_image_downloads(&mut self) {
-    log::debug!("cancel_image_downloads");
-    self.current_image_download_url = None;
-}
+impl crate::App {
+    pub fn on_image_downloaded(&self, image: slint::Image) {
+        log::debug!("on_image_downloaded");
+        // TODO
+    }
+    pub fn cancel_image_downloads(&mut self) {
+        log::debug!("cancel_image_downloads");
+        self.current_image_download_url = None;
+    }
 }

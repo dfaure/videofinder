@@ -150,3 +150,12 @@ pub async fn download_db(
     let file_list_path = filelist_full_path();
     download_to_file(filelist_url, file_list_path, dummy_fn).await
 }
+
+pub async fn download_image_data(
+    url: String
+) -> Result<slint::Image, Box<dyn Error>> {
+    log::info!("download_image_data {}", url);
+    // TODO
+    let image = slint::Image::load_from_path(&PathBuf::from("/todo"))?;
+    Ok(image)
+}
