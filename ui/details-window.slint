@@ -59,34 +59,34 @@ export component DetailsWindow inherits PopupWindow {
             }
             Text {
                 visible: !root.record.location.is-empty;
-                text: "Location: " + root.record.location;
+                text: @tr("Location: {}", root.record.location);
                 wrap: word-wrap;
             }
             // visible: !root.record.path.is-empty;
             // still takes space in the layout, unlike the if construct!
             if !root.record.path.is-empty: Text {
-                text: "Path: " + root.record.path;
+                text: @tr("Path: {}", root.record.path);
                 wrap: word-wrap;
             }
             Text {
                 visible: !root.record.isComputerFile;
-                text: "Shelf: " + root.record.shelf;
+                text: @tr("Shelf: {}", root.record.shelf);
             }
             Text {
                 visible: !root.record.isComputerFile;
-                text: "Row: " + root.record.row;
+                text: @tr("Row: {}", root.record.row);
             }
             Text {
                 visible: !root.record.isComputerFile;
-                text: "Position: " + root.record.position;
+                text: @tr("Position: {}", root.record.position);
             }
             Text {
                 visible: root.record.film_code != 0;
-                text: "Year: " + (root.record.year > 0 ? root.record.year : "-");
+                text: @tr("Year: {}", (root.record.year > 0 ? root.record.year : "-"));
             }
             Text {
                 visible: root.record.film_code != 0;
-                text: "Duration: " + (root.record.duration > 0 ? root.record.duration + " min" : "-");
+                text: @tr("Duration: {}", (root.record.duration > 0 ? root.record.duration + " min" : "-"));
             }
 
 
