@@ -53,6 +53,7 @@ export component AppWindow inherits Window {
     in property <string> details_error;
     in property <[ResultItemData]> result_items;
     in property <RecordWrapper> details_record;
+    in property <image> details_image;
     in property <float> progress: 0;
     in property <bool> download_enabled: true;
 
@@ -127,6 +128,7 @@ export component AppWindow inherits Window {
         film-name: root.clicked-film-name;
         error: root.details_error;
         record: root.details_record;
+        image: root.details_image;
         visible: false;
         width: root.width;
         height: root.height;

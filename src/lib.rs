@@ -106,6 +106,7 @@ fn on_download_finished(&mut self, result: Result<(), Box<dyn Error>>) {
 
 fn open_details_window(&mut self, film_code: i32, support_code: i32) -> String {
     self.ui.set_details_error("".into());
+    self.ui.set_details_image(slint::Image::default());
     self.cancel_image_downloads();
     log::info!("item clicked film {} support {}", film_code, support_code);
     match sqlite_get_record(film_code, support_code) {

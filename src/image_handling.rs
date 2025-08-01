@@ -47,10 +47,15 @@ pub fn download_image(app_rc: &Rc<RefCell<App>>, url: String) {
     let app_rc = app_rc.clone();
     if let Err(e) = slint::spawn_local(async_compat::Compat::new(async move {
         let result = download_image_data(&url).await;
-        if let Ok(image) = result {
-            if Some(url) == app_rc.borrow().current_image_download_url {
-                // if still relevant...
-                app_rc.borrow_mut().on_image_downloaded(image);
+        match result {
+            Ok(image) => {
+                if Some(url) == app_rc.borrow().current_image_download_url {
+                    // if still relevant...
+                    app_rc.borrow_mut().on_image_downloaded(image);
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to download image: {e}");
             }
         }
     })) {
@@ -61,7 +66,7 @@ pub fn download_image(app_rc: &Rc<RefCell<App>>, url: String) {
 impl crate::App {
     pub fn on_image_downloaded(&self, image: slint::Image) {
         log::debug!("on_image_downloaded");
-        // TODO
+        self.ui.set_details_image(image);
     }
     pub fn cancel_image_downloads(&mut self) {
         log::debug!("cancel_image_downloads");

@@ -23,6 +23,7 @@ export component DetailsWindow inherits PopupWindow {
 
     in property<string> film-name;
     in property<RecordWrapper> record;
+    in property<image> image;
     in property<string> error;
     callback actorClicked(string);
     callback notifyClosed();
@@ -103,9 +104,8 @@ export component DetailsWindow inherits PopupWindow {
                 }
             }
 
-            // TODO replace with Image
-            if !root.record.image-url.is-empty: Text {
-                text: root.record.image-url;
+            if root.image.width > 0: Image {
+                source: root.image;
             }
 
             if !root.error.is-empty: Text {

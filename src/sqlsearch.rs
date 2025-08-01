@@ -134,7 +134,6 @@ pub fn sqlite_get_record(film_code : i32, support_code : i32) -> rusqlite::Resul
                 duration: 0,
                 year: 0,
                 actors: [].into(),
-                image_url: "".into(),
             })
             }
         )?;

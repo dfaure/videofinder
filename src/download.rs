@@ -116,25 +116,45 @@ pub async fn download_db(
     download_to_file(filelist_url, file_list_path, dummy_fn).await
 }
 
-async fn download_body_bytes(
-    url: &str
-) -> Result<bytes::Bytes, Box<dyn Error>> {
-    Err("not impl".into())
-    /*
-    let (mut res, conn) = http_get(url).await?;
+use tempfile::Builder;
+use slint::Image;
+use std::path::Path;
 
-    let collect_fut = res.body_mut().collect();
-    let (body_result, conn_result) = join!(collect_fut, conn);
-    let body = body_result?.to_bytes();
-    conn_result?; // optional: check if conn closed cleanly
-    Ok(body)
-    */
-}
+/// Downloads the image at `url_str`, writes it to a temp file, and loads it via `slint::Image::load_from_path`.
 
-pub async fn download_image_data(url_str: &str) -> Result<slint::Image, Box<dyn Error>> {
-    log::info!("download_image_data {}", url_str);
-    let data = download_body_bytes(url_str).await?;
-    //let image = slint::Image::load_from_encoded(data.to_vec())?;
-    //Ok(image)
-    Err("not impl".into())
+pub async fn download_image_data(url_str: &str) -> Result<Image, Box<dyn Error>> {
+    log::info!("Downloading image from {}", url_str);
+
+    let client = Client::new();
+    let response = client.get(url_str).send().await?;
+
+    if !response.status().is_success() {
+        return Err(format!("Request failed with status {}", response.status()).into());
+    }
+
+    let bytes = response.bytes().await?;
+    log::info!("Image downloaded, {} bytes", bytes.len());
+
+    // Extract extension from URL
+    let extension = Path::new(url_str)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("img");
+
+    // Create a temporary file with the appropriate extension
+    let temp_file = Builder::new()
+        .suffix(&format!(".{}", extension))
+        .tempfile()?;
+
+    let temp_path = temp_file.path().to_owned();
+    {
+        let mut file = File::create(&temp_path)?;
+        file.write_all(&bytes)?;
+    }
+
+    // Load using Slint
+    let image = Image::load_from_path(&temp_path)?;
+    log::info!("Image loaded from path: {:?}", temp_path);
+
+    Ok(image)
 }
