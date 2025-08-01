@@ -64,7 +64,7 @@ export component AppWindow inherits Window {
     VerticalBox {
         HorizontalBox {
             searchLineEdit := LineEdit {
-                placeholder-text: "Enter search string";
+                placeholder-text: @tr("Enter search string");
                 accepted(text) => {
                     root.search(text);
                 }
