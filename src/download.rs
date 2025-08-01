@@ -24,80 +24,111 @@ pub fn filelist_full_path() -> PathBuf {
     db_dir().join("filelist.txt")
 }
 
-use hyper::{Request, Uri};
+use hyper::{Request, Response, Uri};
 use hyper::client::conn;
 use hyper::header::HOST;
 use hyper::body::Bytes;
+use hyper::body::Incoming;
 use tokio::net::TcpStream;
 use http_body_util::BodyExt;
 use hyper_util::rt::TokioIo;
+use futures::{FutureExt, select, pin_mut};
+use std::future::Future;
 
 type ProgressFunc = dyn FnMut(f32) + 'static;
 
+async fn http_connect(
+    url_str: &str,
+) -> Result<
+    (
+        Uri,
+        conn::http1::SendRequest<http_body_util::Empty<Bytes>>,
+        impl Future<Output = Result<(), hyper::Error>>,
+    ),
+    Box<dyn Error>,
+> {
+    let url = url_str.parse::<Uri>()?;
+    let host = url.host().ok_or("missing host")?;
+    let port = url.port_u16().unwrap_or(80);
+    let address = format!("{}:{}", host, port);
+
+    let stream = TcpStream::connect(address).await?;
+    let io = TokioIo::new(stream);
+    let (sender, conn) = conn::http1::handshake(io).await?;
+
+    Ok((url, sender, conn))
+}
+
+fn build_request(url: &Uri) -> Result<Request<http_body_util::Empty<Bytes>>, Box<dyn Error>> {
+    let authority = url
+        .authority()
+        .ok_or("missing authority")?
+        .clone();
+
+    let req = Request::builder()
+        .uri(url)
+        .header(HOST, authority.as_str())
+        .body(http_body_util::Empty::new())?;
+
+    Ok(req)
+}
+
+async fn http_send_request(
+    url: &Uri,
+    sender: &mut conn::http1::SendRequest<http_body_util::Empty<Bytes>>,
+) -> Result<Response<Incoming>, Box<dyn Error>> {
+    let req = build_request(url)?;
+    let res = sender.send_request(req).await?;
+    Ok(res)
+}
+
 // Based on https://hyper.rs/guides/1/client/basic/
 pub async fn download_to_file(
-    url_str: &'static str,
+    url_str: &str,
     file_path: PathBuf,
     mut progress_func: Box<ProgressFunc>,
     ) -> Result<(), Box<dyn Error>>
 {
-    let url = url_str.parse::<Uri>()?;
-    let host = url.host().expect("uri has no host");
-    let port = url.port_u16().unwrap_or(80);
-    let address = format!("{}:{}", host, port);
-    log::info!("will get {} from {}", url, address);
-
-    let stream = TcpStream::connect(address).await?;
-    let io = TokioIo::new(stream);
-    let (mut sender, conn) = conn::http1::handshake(io).await?;
-
-    // Drive connection in background
-    tokio::spawn(async move {
-        if let Err(err) = conn.await {
-            log::info!("Connection failed: {:?}", err);
-        }
-    });
-
-    let authority = url.authority().unwrap().clone();
-    let req = Request::builder()
-        .uri(url)
-        .header(HOST, authority.as_str())
-        .body(http_body_util::Empty::<Bytes>::new())
-        .unwrap();
-
-    let mut res = sender.send_request(req).await?;
-    log::info!("Response status: {}", res.status());
-
-    let file_path_str = file_path.clone();
-    let mut dest = {
-        log::info!("will be located under: '{:?}'", file_path);
-        File::create(file_path)?
-    };
-
-    let mut downloaded = 0u64;
+    let (url, mut sender, conn) = http_connect(url_str).await?;
+    log::debug!("http_connect done");
+    let mut res = http_send_request(&url, &mut sender).await?;
+    log::debug!("http_send_request done");
 
     let total_size = res
         .headers()
-        .get("content-length")                 // Get the header value
-        .and_then(|h| h.to_str().ok())         // Convert from HeaderValue to &str
-        .and_then(|s| s.parse::<u64>().ok());  // Parse it to a u64
+        .get("content-length")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| s.parse::<u64>().ok());
     log::info!("Content length: {:?}", total_size);
 
-    // Stream the body, writing each frame to stdout as it arrives
-    while let Some(next) = res.frame().await {
-        let frame = next?;
-        if let Some(chunk) = frame.data_ref() {
-            dest.write_all(chunk)?;
-            downloaded += chunk.len() as u64;
-             if let Some(total) = total_size {
-                let progress = downloaded as f32 / total as f32;
-                progress_func(progress); // UI callback
+    let mut dest = File::create(file_path)?;
+    let mut downloaded = 0u64;
+
+    let conn_fut = conn.fuse(); // make it FusedFuture for select!
+    let body_fut = async {
+        while let Some(next) = res.frame().await {
+            let frame = next?;
+            if let Some(chunk) = frame.data_ref() {
+                dest.write_all(chunk)?;
+                downloaded += chunk.len() as u64;
+
+                if let Some(total) = total_size {
+                    let progress = downloaded as f32 / total as f32;
+                    progress_func(progress);
+                }
             }
         }
+        // TODO log::info!("Done downloading {}, downloaded {}", file_path.display(), downloaded);
+        Ok::<(), Box<dyn std::error::Error>>(())
     }
+    .fuse(); // also needs to be fused
 
-    log::info!("Done downloading {}", file_path_str.display());
-    Ok(())
+    pin_mut!(conn_fut, body_fut);
+
+    select! {
+        res = body_fut => res,
+        _ = conn_fut => Err("connection closed before download finished".into()),
+    }
 }
 
 use std::io::BufReader;
@@ -151,11 +182,27 @@ pub async fn download_db(
     download_to_file(filelist_url, file_list_path, dummy_fn).await
 }
 
-pub async fn download_image_data(
-    url: String
-) -> Result<slint::Image, Box<dyn Error>> {
-    log::info!("download_image_data {}", url);
-    // TODO
-    let image = slint::Image::load_from_path(&PathBuf::from("/todo"))?;
-    Ok(image)
+use futures::join;
+
+async fn download_body_bytes(
+    url: &str
+) -> Result<bytes::Bytes, Box<dyn Error>> {
+    Err("not impl".into())
+    /*
+    let (mut res, conn) = http_get(url).await?;
+
+    let collect_fut = res.body_mut().collect();
+    let (body_result, conn_result) = join!(collect_fut, conn);
+    let body = body_result?.to_bytes();
+    conn_result?; // optional: check if conn closed cleanly
+    Ok(body)
+    */
+}
+
+pub async fn download_image_data(url_str: &str) -> Result<slint::Image, Box<dyn Error>> {
+    log::info!("download_image_data {}", url_str);
+    let data = download_body_bytes(url_str).await?;
+    //let image = slint::Image::load_from_encoded(data.to_vec())?;
+    //Ok(image)
+    Err("not impl".into())
 }

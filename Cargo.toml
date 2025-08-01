@@ -20,6 +20,8 @@ flexi_logger = "0.31.2"
 log = "0.4.27"
 async-compat = "0.2.4"
 anyhow = "1.0.98"
+futures = "0.3.31"
+bytes = "1.10.1"
 
 [build-dependencies]
 slint-build = "1.12.0"

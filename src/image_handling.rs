@@ -46,7 +46,7 @@ pub fn download_image(app_rc: &Rc<RefCell<App>>, url: String) {
     app_rc.borrow_mut().current_image_download_url = Some(url.clone());
     let app_rc = app_rc.clone();
     if let Err(e) = slint::spawn_local(async_compat::Compat::new(async move {
-        let result = download_image_data(url.clone()).await;
+        let result = download_image_data(&url).await;
         if let Ok(image) = result {
             if Some(url) == app_rc.borrow().current_image_download_url {
                 // if still relevant...
