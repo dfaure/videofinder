@@ -1,4 +1,6 @@
 use std::io::Write;
+use std::io::BufRead;
+use std::io::BufReader;
 use std::fs::File;
 use std::path::PathBuf;
 use std::env;
@@ -24,115 +26,47 @@ pub fn filelist_full_path() -> PathBuf {
     db_dir().join("filelist.txt")
 }
 
-use hyper::{Request, Response, Uri};
-use hyper::client::conn;
-use hyper::header::HOST;
-use hyper::body::Bytes;
-use hyper::body::Incoming;
-use tokio::net::TcpStream;
-use http_body_util::BodyExt;
-use hyper_util::rt::TokioIo;
-use futures::{FutureExt, select, pin_mut};
-use std::future::Future;
+use reqwest::Client;
+use futures_util::stream::StreamExt;
 
-type ProgressFunc = dyn FnMut(f32) + 'static;
+/// Type alias for the progress reporting function.
+/// It receives a `f32` in the range 0.0 to 1.0.
+pub type ProgressFunc = dyn FnMut(f32) + 'static;
 
-async fn http_connect(
-    url_str: &str,
-) -> Result<
-    (
-        Uri,
-        conn::http1::SendRequest<http_body_util::Empty<Bytes>>,
-        impl Future<Output = Result<(), hyper::Error>>,
-    ),
-    Box<dyn Error>,
-> {
-    let url = url_str.parse::<Uri>()?;
-    let host = url.host().ok_or("missing host")?;
-    let port = url.port_u16().unwrap_or(80);
-    let address = format!("{}:{}", host, port);
-
-    let stream = TcpStream::connect(address).await?;
-    let io = TokioIo::new(stream);
-    let (sender, conn) = conn::http1::handshake(io).await?;
-
-    Ok((url, sender, conn))
-}
-
-fn build_request(url: &Uri) -> Result<Request<http_body_util::Empty<Bytes>>, Box<dyn Error>> {
-    let authority = url
-        .authority()
-        .ok_or("missing authority")?
-        .clone();
-
-    let req = Request::builder()
-        .uri(url)
-        .header(HOST, authority.as_str())
-        .body(http_body_util::Empty::new())?;
-
-    Ok(req)
-}
-
-async fn http_send_request(
-    url: &Uri,
-    sender: &mut conn::http1::SendRequest<http_body_util::Empty<Bytes>>,
-) -> Result<Response<Incoming>, Box<dyn Error>> {
-    let req = build_request(url)?;
-    let res = sender.send_request(req).await?;
-    Ok(res)
-}
-
-// Based on https://hyper.rs/guides/1/client/basic/
+/// Downloads the content of the given URL into the specified file, reporting progress.
 pub async fn download_to_file(
     url_str: &str,
     file_path: PathBuf,
     mut progress_func: Box<ProgressFunc>,
-    ) -> Result<(), Box<dyn Error>>
-{
-    let (url, mut sender, conn) = http_connect(url_str).await?;
-    log::debug!("http_connect done");
-    let mut res = http_send_request(&url, &mut sender).await?;
-    log::debug!("http_send_request done");
+) -> Result<(), Box<dyn Error>> {
+    log::info!("Starting download from {}", url_str);
 
-    let total_size = res
-        .headers()
-        .get("content-length")
-        .and_then(|h| h.to_str().ok())
-        .and_then(|s| s.parse::<u64>().ok());
-    log::info!("Content length: {:?}", total_size);
+    let client = Client::new();
+    let response = client.get(url_str).send().await?;
 
-    let mut dest = File::create(file_path)?;
+    if !response.status().is_success() {
+        return Err(format!("Request failed with status {}", response.status()).into());
+    }
+
+    let total = response.content_length().unwrap_or(0);
     let mut downloaded = 0u64;
+    let mut stream = response.bytes_stream();
+    let mut file = File::create(&file_path)?;
 
-    let conn_fut = conn.fuse(); // make it FusedFuture for select!
-    let body_fut = async {
-        while let Some(next) = res.frame().await {
-            let frame = next?;
-            if let Some(chunk) = frame.data_ref() {
-                dest.write_all(chunk)?;
-                downloaded += chunk.len() as u64;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        file.write_all(&chunk)?;
+        downloaded += chunk.len() as u64;
 
-                if let Some(total) = total_size {
-                    let progress = downloaded as f32 / total as f32;
-                    progress_func(progress);
-                }
-            }
+        if total > 0 {
+            let progress = downloaded as f32 / total as f32;
+            progress_func(progress);
         }
-        // TODO log::info!("Done downloading {}, downloaded {}", file_path.display(), downloaded);
-        Ok::<(), Box<dyn std::error::Error>>(())
     }
-    .fuse(); // also needs to be fused
 
-    pin_mut!(conn_fut, body_fut);
-
-    select! {
-        res = body_fut => res,
-        _ = conn_fut => Err("connection closed before download finished".into()),
-    }
+    log::info!("Download finished: {} bytes written to {}", downloaded, file_path.display());
+    Ok(())
 }
-
-use std::io::BufReader;
-use std::io::BufRead;
 
 pub type ImageForDirHash = std::collections::HashMap<PathBuf, PathBuf>;
 pub fn parse_file_list() -> Result<ImageForDirHash, Box<dyn Error>>
@@ -181,8 +115,6 @@ pub async fn download_db(
     let file_list_path = filelist_full_path();
     download_to_file(filelist_url, file_list_path, dummy_fn).await
 }
-
-use futures::join;
 
 async fn download_body_bytes(
     url: &str
