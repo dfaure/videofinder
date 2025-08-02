@@ -98,9 +98,9 @@ export component DetailsWindow inherits PopupWindow {
             for actor in root.record.actors: ActorLabel {
                 text: actor;
                 clicked(s) => {
+                    root.actorClicked(s);
                     root.notifyClosed();
                     root.close();
-                    root.actorClicked(s);
                 }
             }
 

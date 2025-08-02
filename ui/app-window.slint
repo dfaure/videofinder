@@ -135,6 +135,8 @@ export component AppWindow inherits Window {
         close-policy: close-on-click-outside;
         actorClicked(name) => {
             searchLineEdit.text = name;
+            let last = name.character-count;
+            searchLineEdit.set-selection-offsets(last, last);
             root.search(name);
         }
         notifyClosed() => {
