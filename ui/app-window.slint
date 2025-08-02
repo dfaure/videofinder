@@ -24,7 +24,7 @@ component ResultItemDisplay {
             //width: letter.font-metrics.width('O') + 10;
             width: 24px;
             // Why doesn't FontMetrics have height?
-            height: letter.font-metrics.ascent - letter.font-metrics.descent /*+ 10px*/;
+            height: letter.font-metrics.ascent - letter.font-metrics.descent;
             background: data.support_color;
             letter := Text {
                 width: parent.width;
