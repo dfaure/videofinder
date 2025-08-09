@@ -42,7 +42,8 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
     if let Err(ref e) = ret {
         log::error!("{:?}", e);
     }
-    ret
+    // When we get here, exit process so Android restarts fresh next time
+    std::process::exit(0);
 }
 
 struct App {
