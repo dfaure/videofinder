@@ -28,8 +28,6 @@ export component DetailsWindow inherits PopupWindow {
     callback actorClicked(string);
     callback notifyClosed();
 
-    // not supported; asked on the tchat - default-font-size: 20px;
-
     // PopupWindow is transparent by default!
     contents := Rectangle {
         x: 5px;
@@ -39,20 +37,6 @@ export component DetailsWindow inherits PopupWindow {
         background: white; // Palette.background;
         border-width: 1px;
         border-color: black;
-
-        // Top-right close button
-        Image {
-            source: @image-url("icons/dismiss.svg");
-            colorize: Palette.foreground;
-            TouchArea {
-                clicked => {
-                    root.notifyClosed();
-                    root.close();
-                }
-            }
-            x: contents.width - self.width - 5px;
-            y: 5px;
-        }
 
         VerticalBox {
             alignment: start;
@@ -112,5 +96,25 @@ export component DetailsWindow inherits PopupWindow {
                 text: root.error;
             }
         }
-    }
+
+        // Top-right close button
+        Rectangle {
+            x: contents.width - self.width - 5px;
+            y: 5px;
+            width: close_img.width;
+            height: close_img.height;
+            background: white; // this is why the Rectangle exists
+            close_img := Image {
+                source: @image-url("icons/dismiss.svg");
+                colorize: Palette.foreground;
+                TouchArea {
+                    clicked => {
+                        root.notifyClosed();
+                        root.close();
+                    }
+                }
+            }
+        }
+
+    } // contents
 }
