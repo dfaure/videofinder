@@ -1,26 +1,26 @@
 // Prevent console window in addition to Slint window in Windows release builds when, e.g., starting the app via file manager. Ignored on other platforms.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use chrono::{DateTime, Local};
+use std::cell::RefCell;
 use std::error::Error;
 use std::fs::File;
 use std::rc::Rc; // "reference counted"
-use std::cell::RefCell;
 use std::time::Instant;
-use chrono::{DateTime, Local};
 
 mod download;
 mod enums;
-mod sqlsearch;
 mod image_handling;
+mod sqlsearch;
 
 use crate::download::download_db;
 use crate::download::parse_file_list;
 use crate::download::ImageForDirHash;
-use crate::image_handling::image_url;
 use crate::image_handling::download_image;
-use slint::VecModel;
-use crate::sqlsearch::sqlite_search;
+use crate::image_handling::image_url;
 use crate::sqlsearch::sqlite_get_record;
+use crate::sqlsearch::sqlite_search;
+use slint::VecModel;
 
 // Include the slint-generated code
 slint::include_modules!();
@@ -28,12 +28,13 @@ slint::include_modules!();
 #[cfg(target_os = "android")]
 #[unsafe(no_mangle)]
 fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
-
     // Log to file, on Android
     flexi_logger::Logger::try_with_env_or_str("debug,android_activity::activity_impl::glue=off")?
-    .log_to_file(flexi_logger::FileSpec::try_from("/storage/emulated/0/Download/videofinder_logs.txt")?)
-    .format(flexi_logger::detailed_format)
-    .start()?;
+        .log_to_file(flexi_logger::FileSpec::try_from(
+            "/storage/emulated/0/Download/videofinder_logs.txt",
+        )?)
+        .format(flexi_logger::detailed_format)
+        .start()?;
 
     log::info!("videofinder started");
     slint::android::init(app).unwrap();
@@ -53,76 +54,78 @@ struct App {
 }
 
 impl App {
-fn show_db_status(&mut self) {
+    fn show_db_status(&mut self) {
+        let ui = &self.ui;
+        let image_for_dir_hash = &mut self.image_for_dir_hash;
 
-    let ui = &self.ui;
-    let image_for_dir_hash = &mut self.image_for_dir_hash;
+        let db_full_path = download::db_full_path();
+        if !db_full_path.exists() {
+            let status = format!("DB file does not exist: {}", db_full_path.display());
+            ui.set_status(status.into());
+        } else {
+            // Check if readable, to debug permission problems on Android
+            match File::open(db_full_path) {
+                Ok(file) => {
+                    match file.metadata() {
+                        Ok(metadata) => {
+                            if let Ok(modified) = metadata.modified() {
+                                let datetime: DateTime<Local> = modified.into();
+                                let time_str = format!(
+                                    "DB last updated: {}",
+                                    datetime.format("%d/%m/%Y %H:%M:%S")
+                                );
+                                ui.set_status(time_str.into());
 
-    let db_full_path = download::db_full_path();
-    if !db_full_path.exists() {
-        let status = format!("DB file does not exist: {}", db_full_path.display());
-        ui.set_status(status.into());
-    } else {
-        // Check if readable, to debug permission problems on Android
-        match File::open(db_full_path) {
-            Ok(file) => {
-                match file.metadata() {
-                    Ok(metadata) => {
-                        if let Ok(modified) = metadata.modified() {
-                            let datetime: DateTime<Local> = modified.into();
-                            let time_str = format!("DB last updated: {}", datetime.format("%d/%m/%Y %H:%M:%S"));
-                            ui.set_status(time_str.into());
-
-                            if let Ok(hash) = parse_file_list() {
-                                *image_for_dir_hash = hash;
+                                if let Ok(hash) = parse_file_list() {
+                                    *image_for_dir_hash = hash;
+                                }
+                                return;
                             }
-                            return;
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to get metadata: {}", e);
                         }
                     }
-                    Err(e) => {
-                        log::warn!("Failed to get metadata: {}", e);
-                    }
+                    ui.set_status("DB last updated: unknown".into());
                 }
-                ui.set_status("DB last updated: unknown".into());
-            },
-            Err(e) => {
-                log::error!("File::open failed: {}", e);
-                let error_msg = format!("DB exists but cannot be opened: {}", e);
-                ui.set_status(error_msg.into());
+                Err(e) => {
+                    log::error!("File::open failed: {}", e);
+                    let error_msg = format!("DB exists but cannot be opened: {}", e);
+                    ui.set_status(error_msg.into());
+                }
             }
         }
     }
-}
 
-fn on_download_finished(&mut self, result: Result<(), Box<dyn Error>>) {
-    if let Err(e) = result {
-        log::warn!("Download error: {e}");
-        self.ui.set_status(format!("Download error: {}", e).into());
-    } else {
-        log::debug!("Download complete");
-        self.ui.set_status("Download complete".into());
-        self.show_db_status();
-    }
-}
-
-fn open_details_window(&mut self, film_code: i32, support_code: i32) -> String {
-    self.ui.set_details_error("".into());
-    self.ui.set_details_image(slint::Image::default());
-    self.cancel_image_downloads();
-    log::info!("item clicked film {} support {}", film_code, support_code);
-    match sqlite_get_record(film_code, support_code) {
-        Ok((record, image_path)) => {
-            self.ui.set_details_record(record);
-            image_url(image_path, &self.image_for_dir_hash)
-        },
-        Err(e) => {
-            let error_msg = format!("Error: {}", e);
-            log::warn!("{}", error_msg);
-            self.ui.set_details_error(error_msg.into());
-            String::new()
+    fn on_download_finished(&mut self, result: Result<(), Box<dyn Error>>) {
+        if let Err(e) = result {
+            log::warn!("Download error: {e}");
+            self.ui.set_status(format!("Download error: {}", e).into());
+        } else {
+            log::debug!("Download complete");
+            self.ui.set_status("Download complete".into());
+            self.show_db_status();
         }
     }
-}
+
+    fn open_details_window(&mut self, film_code: i32, support_code: i32) -> String {
+        self.ui.set_details_error("".into());
+        self.ui.set_details_image(slint::Image::default());
+        self.cancel_image_downloads();
+        log::info!("item clicked film {} support {}", film_code, support_code);
+        match sqlite_get_record(film_code, support_code) {
+            Ok((record, image_path)) => {
+                self.ui.set_details_record(record);
+                image_url(image_path, &self.image_for_dir_hash)
+            }
+            Err(e) => {
+                let error_msg = format!("Error: {}", e);
+                log::warn!("{}", error_msg);
+                self.ui.set_details_error(error_msg.into());
+                String::new()
+            }
+        }
+    }
 } // impl
 
 // This needs a ref to Rc, so it's not an impl for App (self wouldn't be a Rc)
@@ -145,7 +148,7 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
                     let start_time_set = Instant::now();
                     ui.set_result_items(model.clone().into());
                     log::info!("set_result_items: {:?}", start_time_set.elapsed());
-                },
+                }
                 Err(e) => {
                     let error_msg = format!("Error: {}", e);
                     log::warn!("{}", error_msg);
@@ -164,7 +167,6 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
             if !image_url.is_empty() {
                 download_image(&app_rc, image_url);
             }
-
         }
     });
 
@@ -204,7 +206,6 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
 }
 
 pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
-
     std::panic::set_hook(Box::new(|info| {
         log::error!("Panic occurred: {}", info);
     }));

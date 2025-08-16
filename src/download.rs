@@ -1,10 +1,10 @@
-use std::io::Write;
-use std::io::BufRead;
-use std::io::BufReader;
-use std::fs::File;
-use std::path::PathBuf;
 use std::env;
 use std::error::Error;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::io::Write;
+use std::path::PathBuf;
 
 fn db_dir() -> PathBuf {
     if cfg!(target_os = "android") {
@@ -26,8 +26,8 @@ pub fn filelist_full_path() -> PathBuf {
     db_dir().join("filelist.txt")
 }
 
-use reqwest::Client;
 use futures_util::stream::StreamExt;
+use reqwest::Client;
 
 /// Type alias for the progress reporting function.
 /// It receives a `f32` in the range 0.0 to 1.0.
@@ -69,8 +69,7 @@ pub async fn download_to_file(
 }
 
 pub type ImageForDirHash = std::collections::HashMap<PathBuf, PathBuf>;
-pub fn parse_file_list() -> Result<ImageForDirHash, Box<dyn Error>>
-{
+pub fn parse_file_list() -> Result<ImageForDirHash, Box<dyn Error>> {
     log::debug!("parse_file_list");
     match File::open(filelist_full_path()) {
         Ok(file) => {
@@ -87,7 +86,7 @@ pub fn parse_file_list() -> Result<ImageForDirHash, Box<dyn Error>>
             }
             //log::debug!("{:?}", hash);
             Ok(hash)
-        },
+        }
         Err(e) => {
             log::warn!("{:?}", e);
             Err(Box::new(e))
@@ -95,9 +94,7 @@ pub fn parse_file_list() -> Result<ImageForDirHash, Box<dyn Error>>
     }
 }
 
-pub async fn download_db(
-    progress_func: Box<ProgressFunc>,
-) -> Result<(), Box<dyn Error>> {
+pub async fn download_db(progress_func: Box<ProgressFunc>) -> Result<(), Box<dyn Error>> {
     log::info!("download_db begin");
     let target_dir = db_dir();
     if !target_dir.exists() {
@@ -116,9 +113,9 @@ pub async fn download_db(
     download_to_file(filelist_url, file_list_path, dummy_fn).await
 }
 
-use tempfile::Builder;
 use slint::Image;
 use std::path::Path;
+use tempfile::Builder;
 
 /// Downloads the image at `url_str`, writes it to a temp file, and loads it via `slint::Image::load_from_path`.
 
@@ -136,15 +133,10 @@ pub async fn download_image_data(url_str: &str) -> Result<Image, Box<dyn Error>>
     log::info!("Image downloaded, {} bytes", bytes.len());
 
     // Extract extension from URL
-    let extension = Path::new(url_str)
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .unwrap_or("img");
+    let extension = Path::new(url_str).extension().and_then(|ext| ext.to_str()).unwrap_or("img");
 
     // Create a temporary file with the appropriate extension
-    let temp_file = Builder::new()
-        .suffix(&format!(".{}", extension))
-        .tempfile()?;
+    let temp_file = Builder::new().suffix(&format!(".{}", extension)).tempfile()?;
 
     let temp_path = temp_file.path().to_owned();
     {

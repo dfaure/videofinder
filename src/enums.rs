@@ -1,6 +1,8 @@
 /// Types of film
 #[derive(Debug, PartialEq)]
-pub enum FilmType { /*CINEMA = 0,*/ TELEVISION = 1 }
+pub enum FilmType {
+    /*CINEMA = 0,*/ TELEVISION = 1,
+}
 
 /// Types of support (bitfield, for filters)
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -33,11 +35,11 @@ pub fn color_for_support(support_type: SupportType, origin: String, on_loan: boo
             }
 
             // TODO add color legend somewhere :-)
-        },
+        }
         SupportType::DVD => slint::Color::from_argb_encoded(0xFF6DFF6B), // light green
         SupportType::BLURAY => slint::Color::from_argb_encoded(0xFF000084), // dark blue
         SupportType::COMPUTERFILE => slint::Color::from_argb_encoded(0xFFFFDCA8), // very light
-                                                                                  // orange
+                                                                          // orange
     };
     if on_loan {
         base_color.brighter(0.5)

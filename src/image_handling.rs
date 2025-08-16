@@ -1,11 +1,11 @@
-use anyhow::anyhow;
-use std::path::PathBuf;
 use crate::download::download_image_data;
+use crate::App;
 use crate::Rc;
 use crate::RefCell;
-use crate::App;
+use anyhow::anyhow;
+use std::path::PathBuf;
 
-fn relative_path(path : &str) -> anyhow::Result<&str> {
+fn relative_path(path: &str) -> anyhow::Result<&str> {
     let prefixes = [
         "/d/home/sabine/Films/",
         "/home/sabine/Films/",
@@ -34,7 +34,8 @@ pub fn image_url(
             hash.get(&PathBuf::from(relative)).map(|file_name| {
                 format!(
                     "http://www.davidfaure.fr/kvideomanager/Films/{}/{}",
-                    relative, file_name.display()
+                    relative,
+                    file_name.display()
                 )
             })
         })
