@@ -28,6 +28,17 @@ export component DetailsWindow inherits PopupWindow {
     callback actorClicked(string);
     callback notifyClosed();
 
+    forward-focus: my-key-handler;
+    my-key-handler := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Back) {
+                root.notifyClosed();
+                root.close();
+            }
+            accept
+        }
+    }
+
     // PopupWindow is transparent by default!
     contents := Rectangle {
         x: 5px;
