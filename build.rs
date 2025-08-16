@@ -1,6 +1,5 @@
 fn main() {
-    let config = slint_build::CompilerConfiguration::new()
-    .with_style("fluent-light".into());
+    let config = slint_build::CompilerConfiguration::new().with_style("fluent-light".into());
 
     // material-light: too big
     // fluent-light: clean, very sqaure, blue highlight below the lineedit, blue selection
