@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
+        android:extractNativeLibs="false"
         android:requestLegacyExternalStorage="true"
         android:allowBackup="true"
         android:icon="@drawable/videofinder"

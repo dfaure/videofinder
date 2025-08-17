@@ -60,7 +60,8 @@ impl App {
 
         let db_full_path = download::db_full_path();
         if !db_full_path.exists() {
-            let status = format!("DB file does not exist: {}", db_full_path.display());
+            // Not an error, if it's a first time user. Just let them download it.
+            let status = "No DB, click here to download:";
             ui.set_status(status.into());
         } else {
             // Check if readable, to debug permission problems on Android

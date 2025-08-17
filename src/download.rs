@@ -9,7 +9,7 @@ use std::path::PathBuf;
 fn db_dir() -> PathBuf {
     if cfg!(target_os = "android") {
         //PathBuf::from("/storage/emulated/0/Download")
-        PathBuf::from("/storage/emulated/0/Android/data/fr.davidfaure.videofinder/files/")
+        PathBuf::from("/storage/emulated/0/Android/data/fr.davidfaure.videofinder.slint/files/")
     } else {
         PathBuf::from(env::home_dir().unwrap_or("No Home Dir!".into()))
     }
