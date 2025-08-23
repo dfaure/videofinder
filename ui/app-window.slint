@@ -1,6 +1,7 @@
 import { Button, HorizontalBox, LineEdit, ListView, ProgressIndicator, StandardListView, VerticalBox } from "std-widgets.slint";
 import { DetailsWindow } from "details-window.slint";
 import { RecordWrapper } from "record-wrapper.slint";
+import { LargeIconButton } from "large-icon-button.slint";
 
 struct ResultItemData {
     film_name: string,
@@ -72,9 +73,9 @@ export component AppWindow inherits Window {
                     root.search(text);
                 }
             }
-            Button {
+            LargeIconButton {
                 icon: @image-url("icons/search.svg");
-                colorize-icon: true;
+                //colorize-icon: true;
                 clicked => {
                     root.search(searchLineEdit.text);
                 }
@@ -90,12 +91,11 @@ export component AppWindow inherits Window {
                         wrap: word-wrap;
                     }
 
-                    Button {
+                    LargeIconButton {
                         icon: @image-url("icons/reload.png");
                         clicked => {
                             root.download-db();
                         }
-                        min-height: searchLineEdit.min-height;
                         visible: root.download_enabled;
                     }
                 }

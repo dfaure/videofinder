@@ -1,5 +1,6 @@
 import { Palette, VerticalBox } from "std-widgets.slint";
 import { RecordWrapper } from "record-wrapper.slint";
+import { LargeIconButton } from "large-icon-button.slint";
 
 component ActorLabel inherits Rectangle {
     in property <string> text;
@@ -111,7 +112,7 @@ export component DetailsWindow inherits PopupWindow {
         } // Flickable
 
         // Top-right close button
-        Rectangle {
+        /*Rectangle {
             x: contents.width - self.width - 5px;
             y: 5px;
             width: close_img.width;
@@ -127,7 +128,15 @@ export component DetailsWindow inherits PopupWindow {
                     }
                 }
             }
+        }*/
+        LargeIconButton {
+            x: contents.width - self.width - 5px;
+            y: 5px;
+            icon: @image-url("icons/dismiss.svg");
+            clicked => {
+                root.notifyClosed();
+                root.close();
+            }
         }
-
     } // contents
 }
