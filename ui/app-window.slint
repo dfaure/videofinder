@@ -74,6 +74,7 @@ export component AppWindow inherits Window {
             }
             Button {
                 icon: @image-url("icons/search.svg");
+                icon-size: 40px;
                 colorize-icon: true;
                 clicked => {
                     root.search(searchLineEdit.text);
@@ -95,7 +96,7 @@ export component AppWindow inherits Window {
                         clicked => {
                             root.download-db();
                         }
-                        min-height: searchLineEdit.min-height;
+                        icon-size: 40px;
                         visible: root.download_enabled;
                     }
                 }

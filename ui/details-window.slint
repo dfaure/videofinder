@@ -1,4 +1,4 @@
-import { Palette, VerticalBox } from "std-widgets.slint";
+import { Button, Palette, VerticalBox } from "std-widgets.slint";
 import { RecordWrapper } from "record-wrapper.slint";
 
 component ActorLabel inherits Rectangle {
@@ -111,21 +111,14 @@ export component DetailsWindow inherits PopupWindow {
         } // Flickable
 
         // Top-right close button
-        Rectangle {
+        Button {
             x: contents.width - self.width - 5px;
             y: 5px;
-            width: close_img.width;
-            height: close_img.height;
-            background: white; // this is why the Rectangle exists
-            close_img := Image {
-                source: @image-url("icons/dismiss.svg");
-                colorize: Palette.foreground;
-                TouchArea {
-                    clicked => {
-                        root.notifyClosed();
-                        root.close();
-                    }
-                }
+            icon: @image-url("icons/dismiss.svg");
+            icon-size: 40px;
+            clicked => {
+                root.notifyClosed();
+                root.close();
             }
         }
 
