@@ -108,6 +108,7 @@ export component AppWindow inherits Window {
         }
         if !search_error.is-empty : Text {
             text: search_error;
+            vertical-stretch: 1;
         }
         if search_error.is-empty : resultListView := ListView {
             for result in result_items : ResultItemDisplay {

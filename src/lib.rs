@@ -31,7 +31,7 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
     // Log to file, on Android
     flexi_logger::Logger::try_with_env_or_str("debug,android_activity::activity_impl::glue=off")?
         .log_to_file(flexi_logger::FileSpec::try_from(
-            "/storage/emulated/0/Download/videofinder_logs.txt",
+            "/storage/emulated/0/Download/videofinder_log.txt",
         )?)
         .format(flexi_logger::detailed_format)
         .start()?;
@@ -143,6 +143,9 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
                 Ok(results) => {
                     log::info!("SQL search: {:?}", start_time_sql.elapsed());
                     log::info!("displaying {} results", results.len());
+                    if results.is_empty() {
+                        ui.set_search_error("No results found".into());
+                    }
                     let start_time_vec = Instant::now();
                     let model: Rc<VecModel<ResultItemData>> = Rc::new(VecModel::from(results));
                     log::info!("creating VecModel: {:?}", start_time_vec.elapsed());
