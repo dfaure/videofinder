@@ -1,31 +1,31 @@
 /// Types of film
 #[derive(Debug, PartialEq)]
 pub enum FilmType {
-    /*CINEMA = 0,*/ TELEVISION = 1,
+    /*CINEMA = 0,*/ Television = 1,
 }
 
 /// Types of support (bitfield, for filters)
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SupportType {
-    TAPE = 1,
-    DVD = 2,
-    COMPUTERFILE = 4,
-    BLURAY = 8,
-    //ALL = 15
+    Tape = 1,
+    Dvd = 2,
+    ComputerFile = 4,
+    Bluray = 8,
+    //All = 15
 }
 
 pub fn letter_for_support_type(support_type: SupportType) -> &'static str {
     match support_type {
-        SupportType::TAPE => "C", // French ;)
-        SupportType::DVD => "D",
-        SupportType::BLURAY => "B",
-        SupportType::COMPUTERFILE => "O", // French
+        SupportType::Tape => "C", // French ;)
+        SupportType::Dvd => "D",
+        SupportType::Bluray => "B",
+        SupportType::ComputerFile => "O", // French
     }
 }
 
 pub fn color_for_support(support_type: SupportType, origin: String, on_loan: bool) -> slint::Color {
     let base_color = match support_type {
-        SupportType::TAPE => {
+        SupportType::Tape => {
             // "enregistre" or "taped"
             let is_taped = origin.starts_with('E') || origin.starts_with('T');
             if is_taped {
@@ -36,9 +36,9 @@ pub fn color_for_support(support_type: SupportType, origin: String, on_loan: boo
 
             // TODO add color legend somewhere :-)
         }
-        SupportType::DVD => slint::Color::from_argb_encoded(0xFF6DFF6B), // light green
-        SupportType::BLURAY => slint::Color::from_argb_encoded(0xFF000084), // dark blue
-        SupportType::COMPUTERFILE => slint::Color::from_argb_encoded(0xFFFFDCA8), // very light
+        SupportType::Dvd => slint::Color::from_argb_encoded(0xFF6DFF6B), // light green
+        SupportType::Bluray => slint::Color::from_argb_encoded(0xFF000084), // dark blue
+        SupportType::ComputerFile => slint::Color::from_argb_encoded(0xFFFFDCA8), // very light
                                                                           // orange
     };
     if on_loan {

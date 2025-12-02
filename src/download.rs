@@ -11,7 +11,7 @@ fn db_dir() -> PathBuf {
         //PathBuf::from("/storage/emulated/0/Download")
         PathBuf::from("/storage/emulated/0/Android/data/fr.davidfaure.videofinder.slint/files/")
     } else {
-        PathBuf::from(env::home_dir().unwrap_or("No Home Dir!".into()))
+        env::home_dir().unwrap_or("No Home Dir!".into())
     }
 }
 
@@ -118,7 +118,6 @@ use std::path::Path;
 use tempfile::Builder;
 
 /// Downloads the image at `url_str`, writes it to a temp file, and loads it via `slint::Image::load_from_path`.
-
 pub async fn download_image_data(url_str: &str) -> Result<Image, Box<dyn Error>> {
     log::info!("Downloading image from {}", url_str);
 

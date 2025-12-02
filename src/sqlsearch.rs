@@ -12,10 +12,10 @@ use slint::VecModel;
 impl FromSql for SupportType {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> FromSqlResult<Self> {
         match value.as_i64() {
-            Ok(1) => Ok(SupportType::TAPE),
-            Ok(2) => Ok(SupportType::DVD),
-            Ok(4) => Ok(SupportType::COMPUTERFILE),
-            Ok(8) => Ok(SupportType::BLURAY),
+            Ok(1) => Ok(SupportType::Tape),
+            Ok(2) => Ok(SupportType::Dvd),
+            Ok(4) => Ok(SupportType::ComputerFile),
+            Ok(8) => Ok(SupportType::Bluray),
             // Handle any other i32 value that doesn't correspond to a variant.
             Ok(_) => Err(FromSqlError::InvalidType),
             Err(e) => Err(e),
@@ -71,16 +71,16 @@ pub fn sqlite_search(text: String) -> rusqlite::Result<Vec<ResultItemData>> {
             let film_code = row.get::<_, i32>(9).unwrap_or(0);
 
             let film_name = {
-                if support_type == SupportType::COMPUTERFILE {
+                if support_type == SupportType::ComputerFile {
                     title
-                } else if film_type == Some(FilmType::TELEVISION as i32) {
+                } else if film_type == Some(FilmType::Television as i32) {
                     let mut film_name: String;
                     if let (Some(serie), Some(n)) = (&serie_name, &name) {
                         // Inside this block, 'serie' and 'n' are &String (references to String)
                         // You can dereference them (*serie, *n) or use .clone() if you need owned String
                         film_name = format!("{} -- {}", serie, n);
                     } else {
-                        film_name = name.unwrap_or_else(|| String::new());
+                        film_name = name.unwrap_or_else(String::new);
                     }
                     let maybe_season = row.get::<_, Option<i32>>(4).unwrap_or(None); // some are String("")
                     let maybe_episode = row.get::<_, Option<i32>>(5).unwrap_or(None);
@@ -89,9 +89,9 @@ pub fn sqlite_search(text: String) -> rusqlite::Result<Vec<ResultItemData>> {
                         film_name = format!("{} ({})", film_name, episode_number);
                     }
                     film_name
-                } else if name.is_some() {
+                } else if let Some(name) = name {
                     // Film
-                    name.unwrap()
+                    name
                 } else {
                     // Tape without a film
                     title
@@ -102,8 +102,8 @@ pub fn sqlite_search(text: String) -> rusqlite::Result<Vec<ResultItemData>> {
                 film_name: film_name.into(),
                 support_color: crate::enums::color_for_support(support_type, origin, on_loan),
                 support_type_text: crate::enums::letter_for_support_type(support_type).into(),
-                film_code: film_code,
-                support_code: support_code,
+                film_code,
+                support_code,
             })
         },
     )?;
@@ -132,7 +132,7 @@ pub fn sqlite_get_record(
     let mut record_wrapper = support_query.query_row([support_code], |row| {
         //log::info!("Support row: {:?}", row);
         Ok(RecordWrapper {
-            isComputerFile: row.get::<_, SupportType>(0)? == SupportType::COMPUTERFILE,
+            isComputerFile: row.get::<_, SupportType>(0)? == SupportType::ComputerFile,
             shelf: row.get(1)?,
             row: row.get(2)?,
             position: row.get(3)?,
@@ -183,5 +183,5 @@ pub fn sqlite_get_record(
         }); // no ? here, ignore errors
     }
 
-    return Ok((record_wrapper, image_path));
+    Ok((record_wrapper, image_path))
 }

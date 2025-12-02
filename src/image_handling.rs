@@ -19,7 +19,7 @@ fn relative_path(path: &str) -> anyhow::Result<&str> {
         }
     }
     log::warn!("Unknown prefix in image path {}", path);
-    return Err(anyhow!("unknown prefix"));
+    Err(anyhow!("unknown prefix"))
 }
 
 pub fn image_url(
