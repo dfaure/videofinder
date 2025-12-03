@@ -56,7 +56,6 @@ struct App {
 impl App {
     fn show_db_status(&mut self) {
         let ui = &self.ui;
-        let image_for_dir_hash = &mut self.image_for_dir_hash;
 
         let db_full_path = download::db_full_path();
         if !db_full_path.exists() {
@@ -78,7 +77,7 @@ impl App {
                                 ui.set_status(time_str.into());
 
                                 if let Ok(hash) = parse_file_list() {
-                                    *image_for_dir_hash = hash;
+                                    self.image_for_dir_hash = hash;
                                 }
                                 return;
                             }
