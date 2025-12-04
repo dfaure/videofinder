@@ -4,7 +4,8 @@ pub enum FilmType {
     /*CINEMA = 0,*/ Television = 1,
 }
 
-/// Types of support (bitfield, for filters)
+/// Types of support (bitfield, for filters, but we don't use that in this code base, it's just how the values are in the DB)
+/// If we need that one day: port to https://crates.io/crates/flagset
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SupportType {
     Tape = 1,

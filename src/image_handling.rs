@@ -1,7 +1,7 @@
-use crate::download::download_image_data;
 use crate::App;
 use crate::Rc;
 use crate::RefCell;
+use crate::download::download_image_data;
 use anyhow::anyhow;
 use std::path::PathBuf;
 

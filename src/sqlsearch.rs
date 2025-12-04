@@ -1,8 +1,8 @@
+use crate::RecordWrapper;
+use crate::ResultItemData;
 use crate::download;
 use crate::enums::FilmType;
 use crate::enums::SupportType;
-use crate::RecordWrapper;
-use crate::ResultItemData;
 use std::rc::Rc;
 
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult};
@@ -112,7 +112,7 @@ pub fn sqlite_search(text: String) -> rusqlite::Result<Vec<ResultItemData>> {
 
     log::debug!("Done running");
 
-    let mut results: Vec<ResultItemData> = vec![];
+    let mut results: Vec<ResultItemData> = Vec::new();
     for search_result in iter {
         //log::debug!("Search result {:?}", search_result?);
         results.push(search_result?);
@@ -167,7 +167,7 @@ pub fn sqlite_get_record(
         let mut actor_query = conn.prepare("SELECT ACTOR FROM Actor WHERE code_film=?1")?;
         let iter = actor_query.query_map([film_code], |row| row.get::<_, String>(0))?;
 
-        let mut actors: Vec<slint::SharedString> = vec![];
+        let mut actors: Vec<slint::SharedString> = Vec::new();
         for actor in iter {
             //log::debug!("Actor {:?}", actor?);
             actors.push(actor?.into());

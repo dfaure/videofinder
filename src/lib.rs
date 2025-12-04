@@ -13,9 +13,9 @@ mod enums;
 mod image_handling;
 mod sqlsearch;
 
+use crate::download::ImageForDirHash;
 use crate::download::download_db;
 use crate::download::parse_file_list;
-use crate::download::ImageForDirHash;
 use crate::image_handling::download_image;
 use crate::image_handling::image_url;
 use crate::sqlsearch::sqlite_get_record;
