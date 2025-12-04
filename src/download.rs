@@ -59,7 +59,11 @@ pub async fn download_to_file(
         }
     }
 
-    log::info!("Download finished: {} bytes written to {}", downloaded, file_path.display());
+    log::info!(
+        "Download finished: {} bytes written to {}",
+        downloaded,
+        file_path.display()
+    );
     Ok(())
 }
 
@@ -115,10 +119,15 @@ pub async fn download_image_data(url_str: &str) -> Result<Image, anyhow::Error> 
     log::info!("Image downloaded, {} bytes", bytes.len());
 
     // Extract extension from URL
-    let extension = Path::new(url_str).extension().and_then(|ext| ext.to_str()).unwrap_or("img");
+    let extension = Path::new(url_str)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("img");
 
     // Create a temporary file with the appropriate extension
-    let temp_file = Builder::new().suffix(&format!(".{}", extension)).tempfile()?;
+    let temp_file = Builder::new()
+        .suffix(&format!(".{}", extension))
+        .tempfile()?;
 
     let temp_path = temp_file.path().to_owned();
     {

@@ -97,7 +97,7 @@ impl App {
         }
     }
 
-    fn on_download_finished(&mut self, result: Result<(), Box<dyn Error>>) {
+    fn on_download_finished(&mut self, result: Result<(), anyhow::Error>) {
         if let Err(e) = result {
             log::warn!("Download error: {e}");
             self.ui.set_status(format!("Download error: {}", e).into());
@@ -166,7 +166,9 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
         let app_rc = app.clone(); // clone the Rc
         move |film_code, support_code| {
             // executed on click
-            let image_url = app_rc.borrow_mut().open_details_window(film_code, support_code);
+            let image_url = app_rc
+                .borrow_mut()
+                .open_details_window(film_code, support_code);
             if !image_url.is_empty() {
                 download_image(&app_rc, image_url);
             }

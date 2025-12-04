@@ -52,7 +52,9 @@ pub fn sqlite_search(text: String) -> rusqlite::Result<Vec<ResultItemData>> {
     log::debug!("prepared, now running");
 
     let iter = stmt.query_map(
-        [&pattern, &pattern, &pattern, &pattern, &pattern, &pattern, &pattern],
+        [
+            &pattern, &pattern, &pattern, &pattern, &pattern, &pattern, &pattern,
+        ],
         |row| {
             let serie_name = row.get::<_, Option<String>>(0)?;
             //log::debug!("serie_name: {:?}", serie_name);
