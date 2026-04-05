@@ -81,30 +81,28 @@ export component AppWindow inherits Window {
                 }
             }
         }
-        if searchLineEdit.text.is-empty : HorizontalBox {
-            VerticalBox {
-                HorizontalBox {
-                    alignment: start;
-                    Text {
-                        text: "\{root.status}";
-                        vertical-alignment: center;
-                        wrap: word-wrap;
-                    }
-
-                    Button {
-                        icon: @image-url("icons/reload.png");
-                        clicked => {
-                            root.download-db();
-                        }
-                        icon-size: 40px;
-                        visible: root.download_enabled;
-                    }
+        if searchLineEdit.text.is-empty : VerticalLayout {
+            HorizontalLayout {
+                alignment: start;
+                Text {
+                    text: "\{root.status}";
+                    vertical-alignment: center;
+                    wrap: word-wrap;
                 }
 
-                ProgressIndicator {
-                    progress: root.progress;
-                    visible: root.progress > 0;
+                Button {
+                    icon: @image-url("icons/reload.png");
+                    clicked => {
+                        root.download-db();
+                    }
+                    icon-size: 40px;
+                    visible: root.download_enabled;
                 }
+            }
+
+            ProgressIndicator {
+                progress: root.progress;
+                visible: root.progress > 0;
             }
         }
         if !search_error.is-empty : Text {
