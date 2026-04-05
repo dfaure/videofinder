@@ -1,4 +1,4 @@
-import { Button, HorizontalBox, LineEdit, ListView, ProgressIndicator, StandardListView, VerticalBox } from "std-widgets.slint";
+import { Button, HorizontalBox, LineEdit, ListView, ProgressIndicator, StandardListView, VerticalBox, CheckBox } from "std-widgets.slint";
 import { DetailsWindow } from "details-window.slint";
 import { RecordWrapper } from "record-wrapper.slint";
 
@@ -61,6 +61,7 @@ export component AppWindow inherits Window {
 
     callback download-db();
     callback search(string);
+    callback set_group_by_support(bool);
     callback item-clicked(int, int); // film code, support code
     callback notify_details_window_closed();
 
@@ -78,6 +79,14 @@ export component AppWindow inherits Window {
                 colorize-icon: true;
                 clicked => {
                     root.search(searchLineEdit.text);
+                }
+            }
+            CheckBox {
+                checked: true;
+                text: "Group by Tape/DVD";
+                toggled => {
+                    root.set_group_by_support(self.checked);
+                    root.search(searchLineEdit.text); // much easier than doing this in rust ;)
                 }
             }
         }

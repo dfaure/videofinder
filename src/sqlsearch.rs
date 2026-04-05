@@ -27,7 +27,10 @@ impl FromSql for SupportType {
 // ResultItemData is a GUI type, defined in the slint code
 // Using this here is a bit arguable in terms of core/ui separation,
 // but avoids conversions & code duplication.
-pub fn sqlite_search(text: String) -> rusqlite::Result<Vec<ResultItemData>> {
+pub fn sqlite_search(
+    text: String,
+    group_by_support: bool,
+) -> rusqlite::Result<Vec<ResultItemData>> {
     let conn =
         Connection::open_with_flags(download::db_full_path(), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
 
@@ -71,7 +74,7 @@ pub fn sqlite_search(text: String) -> rusqlite::Result<Vec<ResultItemData>> {
             let film_code = row.get::<_, i32>(9).unwrap_or(0);
 
             let film_name = {
-                if support_type == SupportType::ComputerFile {
+                if group_by_support || support_type == SupportType::ComputerFile {
                     title
                 } else if film_type == Some(FilmType::Television as i32) {
                     let mut film_name: String;
@@ -111,7 +114,14 @@ pub fn sqlite_search(text: String) -> rusqlite::Result<Vec<ResultItemData>> {
     log::debug!("Done running");
 
     //log::debug!("Search results {:?}", results);
-    iter.collect()
+    let results: Vec<ResultItemData> = iter.collect::<rusqlite::Result<_>>()?;
+
+    if group_by_support {
+        let mut seen_supports = std::collections::HashSet::new();
+        Ok(results.into_iter().filter(|item| seen_supports.insert(item.support_code)).collect())
+    } else {
+        Ok(results)
+    }
 }
 
 pub fn sqlite_get_record(

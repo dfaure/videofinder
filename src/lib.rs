@@ -122,9 +122,18 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
     let image_for_dir_hash: Rc<RefCell<ImageForDirHash>> =
         Rc::new(RefCell::new(ImageForDirHash::new()));
     let current_image_download_url: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
+    let group_by_support: Rc<RefCell<bool>> = Rc::new(RefCell::new(true));
 
     // Show initial status and fill in image_for_dir_hash if the file is already present
     show_db_status(&ui, &image_for_dir_hash);
+
+    ui.on_set_group_by_support({
+        let group_by_support = group_by_support.clone();
+        move |b| {
+            log::info!("set_group_by_support: {}", b);
+            *group_by_support.borrow_mut() = b;
+        }
+    });
 
     ui.on_search({
         let ui_handle = ui.as_weak();
@@ -133,7 +142,7 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
             let ui = ui_handle.unwrap();
             ui.set_search_error("".into());
             let start_time_sql = Instant::now();
-            match sqlite_search(text.to_string()) {
+            match sqlite_search(text.to_string(), *group_by_support.borrow()) {
                 Ok(results) => {
                     log::info!("SQL search: {:?}", start_time_sql.elapsed());
                     log::info!("displaying {} results", results.len());
