@@ -65,7 +65,7 @@ pub fn sqlite_search(text: String) -> rusqlite::Result<Vec<ResultItemData>> {
             let support_type = row.get::<_, SupportType>(3)?;
             //log::debug!("support_type: {:?}", support_type);
 
-            let origin = row.get::<_, String>(6).unwrap_or(String::new());
+            let origin = row.get::<_, String>(6).unwrap_or_default();
             let on_loan = row.get::<_, bool>(7).unwrap_or(false);
             let support_code = row.get::<_, i32>(8).unwrap_or(0);
             let film_code = row.get::<_, i32>(9).unwrap_or(0);
@@ -80,7 +80,7 @@ pub fn sqlite_search(text: String) -> rusqlite::Result<Vec<ResultItemData>> {
                         // You can dereference them (*serie, *n) or use .clone() if you need owned String
                         film_name = format!("{} -- {}", serie, n);
                     } else {
-                        film_name = name.unwrap_or_else(String::new);
+                        film_name = name.unwrap_or_default();
                     }
                     let maybe_season = row.get::<_, Option<i32>>(4).unwrap_or(None); // some are String("")
                     let maybe_episode = row.get::<_, Option<i32>>(5).unwrap_or(None);
@@ -110,13 +110,8 @@ pub fn sqlite_search(text: String) -> rusqlite::Result<Vec<ResultItemData>> {
 
     log::debug!("Done running");
 
-    let mut results: Vec<ResultItemData> = Vec::new();
-    for search_result in iter {
-        //log::debug!("Search result {:?}", search_result?);
-        results.push(search_result?);
-    }
-
-    Ok(results)
+    //log::debug!("Search results {:?}", results);
+    iter.collect()
 }
 
 pub fn sqlite_get_record(
@@ -165,13 +160,10 @@ pub fn sqlite_get_record(
         let mut actor_query = conn.prepare("SELECT ACTOR FROM Actor WHERE code_film=?1")?;
         let iter = actor_query.query_map([film_code], |row| row.get::<_, String>(0))?;
 
-        let mut actors: Vec<slint::SharedString> = Vec::new();
-        for actor in iter {
-            //log::debug!("Actor {:?}", actor?);
-            actors.push(actor?.into());
-        }
-        let model: Rc<VecModel<slint::SharedString>> = Rc::new(VecModel::from(actors));
-        record_wrapper.actors = model.into();
+        //log::debug!("Actors {:?}", actors);
+        let actors: Vec<slint::SharedString> =
+            iter.map(|a| Ok(a?.into())).collect::<rusqlite::Result<_>>()?;
+        record_wrapper.actors = Rc::new(VecModel::from(actors)).into();
 
         log::info!("Doing image query for film code {}", film_code);
         let mut image_query = conn.prepare("SELECT N_IMAGE FROM Image WHERE code_film=?1")?;

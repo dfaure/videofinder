@@ -1,4 +1,3 @@
-use std::env;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -10,7 +9,7 @@ fn db_dir() -> PathBuf {
         //PathBuf::from("/storage/emulated/0/Download")
         PathBuf::from("/storage/emulated/0/Android/data/fr.davidfaure.videofinder.slint/files/")
     } else {
-        env::home_dir().unwrap_or("No Home Dir!".into())
+        dirs::home_dir().expect("No home directory found")
     }
 }
 

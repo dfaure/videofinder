@@ -144,7 +144,7 @@ pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
                     let model: Rc<VecModel<ResultItemData>> = Rc::new(VecModel::from(results));
                     log::info!("creating VecModel: {:?}", start_time_vec.elapsed());
                     let start_time_set = Instant::now();
-                    ui.set_result_items(model.clone().into());
+                    ui.set_result_items(model.into());
                     log::info!("set_result_items: {:?}", start_time_set.elapsed());
                 }
                 Err(e) => {

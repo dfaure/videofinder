@@ -7,6 +7,7 @@ edition = "2024"
 
 [dependencies]
 chrono = "0.4.41"
+dirs = "6"
 # To test with the last slint release, replace "workspace = true" with "version = 1.12"
 # in both slint lines below (dependencies and build-dependencies).
 slint = { workspace = true, features = ["std", "compat-1-2", "backend-winit", "renderer-skia"] }
