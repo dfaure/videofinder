@@ -42,9 +42,5 @@ pub fn color_for_support(support_type: SupportType, origin: String, on_loan: boo
         SupportType::ComputerFile => slint::Color::from_argb_encoded(0xFFFFDCA8), // very light
                                                                           // orange
     };
-    if on_loan {
-        base_color.brighter(0.5)
-    } else {
-        base_color
-    }
+    if on_loan { base_color.brighter(0.5) } else { base_color }
 }
