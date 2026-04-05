@@ -38,9 +38,7 @@ required-features = ["with-binary"]
 default = ["with-binary"]
 with-binary = []
 
-# https://gendignoux.com/blog/2022/10/24/rust-library-android.html
-[profile.release]
-strip = true
+# Strip symbols on Android: see .cargo/config.toml
 
 
 #[patch.crates-io]

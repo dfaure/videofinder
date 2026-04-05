@@ -1,3 +1,7 @@
+# Strip symbols in release builds on Android
+[target.aarch64-linux-android]
+rustflags = ["-C", "strip=symbols"]
+
 [target.x86_64-pc-windows-msvc]
 # Increase default stack size to avoid running out of stack
 # space in debug builds. The size matches Linux's default.
