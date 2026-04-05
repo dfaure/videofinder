@@ -5,7 +5,7 @@ use chrono::{DateTime, Local};
 use std::cell::RefCell;
 use std::error::Error;
 use std::fs::File;
-use std::rc::Rc; // "reference counted"
+use std::rc::Rc;
 use std::time::Instant;
 
 mod download;
@@ -47,92 +47,87 @@ fn android_main(app: slint::android::AndroidApp) -> Result<(), Box<dyn Error>> {
     std::process::exit(0);
 }
 
-struct App {
-    ui: AppWindow,
-    image_for_dir_hash: ImageForDirHash,
-    current_image_download_url: Option<String>,
-}
+fn show_db_status(ui: &AppWindow, image_for_dir_hash: &Rc<RefCell<ImageForDirHash>>) {
+    let db_full_path = download::db_full_path();
+    if !db_full_path.exists() {
+        // Not an error, if it's a first time user. Just let them download it.
+        let status = "No DB, click here to download:";
+        ui.set_status(status.into());
+    } else {
+        // Check if readable, to debug permission problems on Android
+        match File::open(db_full_path) {
+            Ok(file) => {
+                match file.metadata() {
+                    Ok(metadata) => {
+                        if let Ok(modified) = metadata.modified() {
+                            let datetime: DateTime<Local> = modified.into();
+                            let time_str = format!(
+                                "DB last updated: {}",
+                                datetime.format("%d/%m/%Y %H:%M:%S")
+                            );
+                            ui.set_status(time_str.into());
 
-impl App {
-    fn show_db_status(&mut self) {
-        let ui = &self.ui;
-
-        let db_full_path = download::db_full_path();
-        if !db_full_path.exists() {
-            // Not an error, if it's a first time user. Just let them download it.
-            let status = "No DB, click here to download:";
-            ui.set_status(status.into());
-        } else {
-            // Check if readable, to debug permission problems on Android
-            match File::open(db_full_path) {
-                Ok(file) => {
-                    match file.metadata() {
-                        Ok(metadata) => {
-                            if let Ok(modified) = metadata.modified() {
-                                let datetime: DateTime<Local> = modified.into();
-                                let time_str = format!(
-                                    "DB last updated: {}",
-                                    datetime.format("%d/%m/%Y %H:%M:%S")
-                                );
-                                ui.set_status(time_str.into());
-
-                                if let Ok(hash) = parse_file_list() {
-                                    self.image_for_dir_hash = hash;
-                                }
-                                return;
+                            if let Ok(hash) = parse_file_list() {
+                                *image_for_dir_hash.borrow_mut() = hash;
                             }
-                        }
-                        Err(e) => {
-                            log::warn!("Failed to get metadata: {}", e);
+                            return;
                         }
                     }
-                    ui.set_status("DB last updated: unknown".into());
+                    Err(e) => {
+                        log::warn!("Failed to get metadata: {}", e);
+                    }
                 }
-                Err(e) => {
-                    log::error!("File::open failed: {}", e);
-                    let error_msg = format!("DB exists but cannot be opened: {}", e);
-                    ui.set_status(error_msg.into());
-                }
-            }
-        }
-    }
-
-    fn on_download_finished(&mut self, result: Result<(), anyhow::Error>) {
-        if let Err(e) = result {
-            log::warn!("Download error: {e}");
-            self.ui.set_status(format!("Download error: {}", e).into());
-        } else {
-            log::debug!("Download complete");
-            self.ui.set_status("Download complete".into());
-            self.show_db_status();
-        }
-    }
-
-    fn open_details_window(&mut self, film_code: i32, support_code: i32) -> String {
-        self.ui.set_details_error("".into());
-        self.ui.set_details_image(slint::Image::default());
-        self.cancel_image_downloads();
-        log::info!("item clicked film {} support {}", film_code, support_code);
-        match sqlite_get_record(film_code, support_code) {
-            Ok((record, image_path)) => {
-                self.ui.set_details_record(record);
-                image_url(image_path, &self.image_for_dir_hash)
+                ui.set_status("DB last updated: unknown".into());
             }
             Err(e) => {
-                let error_msg = format!("Error: {}", e);
-                log::warn!("{}", error_msg);
-                self.ui.set_details_error(error_msg.into());
-                String::new()
+                log::error!("File::open failed: {}", e);
+                let error_msg = format!("DB exists but cannot be opened: {}", e);
+                ui.set_status(error_msg.into());
             }
         }
     }
-} // impl
+}
 
-// This needs a ref to Rc, so it's not an impl for App (self wouldn't be a Rc)
-fn setup_ui(app: &Rc<RefCell<App>>) {
-    let app_ref = app.borrow();
-    app_ref.ui.on_search({
-        let ui_handle = app_ref.ui.as_weak();
+fn open_details_window(
+    ui: &AppWindow,
+    film_code: i32,
+    support_code: i32,
+    image_for_dir_hash: &ImageForDirHash,
+    current_image_download_url: &Rc<RefCell<Option<String>>>,
+) -> String {
+    ui.set_details_error("".into());
+    ui.set_details_image(slint::Image::default());
+    *current_image_download_url.borrow_mut() = None;
+    log::info!("item clicked film {} support {}", film_code, support_code);
+    match sqlite_get_record(film_code, support_code) {
+        Ok((record, image_path)) => {
+            ui.set_details_record(record);
+            image_url(image_path, image_for_dir_hash)
+        }
+        Err(e) => {
+            let error_msg = format!("Error: {}", e);
+            log::warn!("{}", error_msg);
+            ui.set_details_error(error_msg.into());
+            String::new()
+        }
+    }
+}
+
+pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
+    std::panic::set_hook(Box::new(|info| {
+        log::error!("Panic occurred: {}", info);
+    }));
+
+    let ui = AppWindow::new()?;
+    let image_for_dir_hash: Rc<RefCell<ImageForDirHash>> =
+        Rc::new(RefCell::new(ImageForDirHash::new()));
+    let current_image_download_url: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
+
+    // Show initial status and fill in image_for_dir_hash if the file is already present
+    show_db_status(&ui, &image_for_dir_hash);
+
+    ui.on_search({
+        let ui_handle = ui.as_weak();
         move |text| {
             log::info!("searching for {:?}", text);
             let ui = ui_handle.unwrap();
@@ -161,74 +156,67 @@ fn setup_ui(app: &Rc<RefCell<App>>) {
         }
     });
 
-    app_ref.ui.on_item_clicked({
-        // executed immediately
-        let app_rc = app.clone(); // clone the Rc
+    ui.on_item_clicked({
+        let ui_handle = ui.as_weak();
+        let image_for_dir_hash = image_for_dir_hash.clone();
+        let current_image_download_url = current_image_download_url.clone();
         move |film_code, support_code| {
-            // executed on click
-            let image_url = app_rc.borrow_mut().open_details_window(film_code, support_code);
+            let ui = ui_handle.unwrap();
+            let image_url = open_details_window(
+                &ui,
+                film_code,
+                support_code,
+                &image_for_dir_hash.borrow(),
+                &current_image_download_url,
+            );
             if !image_url.is_empty() {
-                download_image(&app_rc, image_url);
+                download_image(&ui_handle, &current_image_download_url, image_url);
             }
         }
     });
 
-    app_ref.ui.on_notify_details_window_closed({
-        // executed immediately
-        let app_rc = app.clone(); // clone the Rc
+    ui.on_notify_details_window_closed({
+        let current_image_download_url = current_image_download_url.clone();
         move || {
-            // executed when closing the details window
-            app_rc.borrow_mut().cancel_image_downloads();
+            log::debug!("cancel_image_downloads");
+            *current_image_download_url.borrow_mut() = None;
         }
     });
 
-    app_ref.ui.on_download_db({
-        // executed immediately
-        let app_rc = app.clone(); // clone the Rc
+    ui.on_download_db({
+        let ui_handle = ui.as_weak();
+        let image_for_dir_hash = image_for_dir_hash.clone();
 
         move || {
-            // executed on click
-            app_rc.borrow().ui.set_status("Downloading...".into());
-            // local vars for move-captures
-            let app_rc = app_rc.clone();
-            let app_rc_for_progress = app_rc.clone();
+            let ui = ui_handle.unwrap();
+            ui.set_status("Downloading...".into());
+            let ui_handle = ui_handle.clone();
+            let ui_handle_for_progress = ui_handle.clone();
+            let image_for_dir_hash = image_for_dir_hash.clone();
             let progress_func = Box::new(move |progress: f32| {
-                app_rc_for_progress.borrow().ui.set_progress(progress);
+                ui_handle_for_progress.unwrap().set_progress(progress);
             });
             log::info!("on_download_db");
             if let Err(e) = slint::spawn_local(async_compat::Compat::new(async move {
-                app_rc.borrow().ui.set_download_enabled(false); // prevent re-entrancy
+                let ui = ui_handle.unwrap();
+                ui.set_download_enabled(false); // prevent re-entrancy
                 let result = download_db(progress_func).await;
-                app_rc.borrow_mut().on_download_finished(result);
-                app_rc.borrow().ui.set_download_enabled(true);
+                if let Err(e) = result {
+                    log::warn!("Download error: {e}");
+                    ui.set_status(format!("Download error: {}", e).into());
+                } else {
+                    log::debug!("Download complete");
+                    ui.set_status("Download complete".into());
+                    show_db_status(&ui, &image_for_dir_hash);
+                }
+                ui.set_download_enabled(true);
             })) {
                 log::error!("Failed to schedule download: {e}");
             }
         }
     });
-}
 
-pub fn videofinder_main() -> Result<(), Box<dyn Error>> {
-    std::panic::set_hook(Box::new(|info| {
-        log::error!("Panic occurred: {}", info);
-    }));
-
-    // Use Rc<RefCell>> because we're modifying image_for_dir_hash from the async task (see spawn_local)
-    let app = Rc::new(RefCell::new(App {
-        ui: AppWindow::new()?,
-        image_for_dir_hash: ImageForDirHash::new(),
-        current_image_download_url: None,
-    }));
-
-    // Show initial status and fill in image_for_dir_hash if the file is already present
-    app.borrow_mut().show_db_status();
-
-    // The setup_ui function provides a scope for app_ref (to avoid writing app.borrow() 50 times)
-    setup_ui(&app);
-
-    // Grab a ref to UI using a temporary app.borrow (which MUST be released before calling run())
-    let ui_ref = app.borrow().ui.as_weak();
     log::debug!("calling run");
-    ui_ref.unwrap().run()?;
+    ui.run()?;
     Ok(())
 }
