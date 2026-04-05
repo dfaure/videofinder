@@ -7,7 +7,11 @@ edition = "2024"
 
 [dependencies]
 chrono = "0.4.41"
-slint = { version = "1.12", features = ["backend-android-activity-06"] }
+# To test with the last slint release, replace "workspace = true" with "version = 1.12"
+# in both slint lines below (dependencies and build-dependencies).
+slint = { workspace = true, features = ["std", "compat-1-2", "backend-winit", "renderer-skia"] }
+#slint = { version = "1.12", features = ["backend-android-activity-06"] }
+#slint = { version = "1.12", features = ["std", "compat-1-2", "backend-winit", "renderer-skia"] }
 rusqlite = { version = "0.37.0", features = ["bundled"] }
 # Disable TLS/HTTPS features from required, crashes on Android (and not needed)
 reqwest = { version = "0.12", default-features = false, features = ["stream"] }
@@ -20,7 +24,8 @@ futures-util = "0.3.31"
 tempfile = "3.20.0"
 
 [build-dependencies]
-slint-build = "1.12.0"
+slint-build = { workspace = true }
+#slint-build = "1.12"
 
 [lib]
 # https://github.com/rust-lang/cargo/issues/12260#issuecomment-2225216175 says this might create trouble on Windows...
