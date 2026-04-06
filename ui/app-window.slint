@@ -90,6 +90,7 @@ export component AppWindow inherits Window {
             CheckBox {
                 checked: true;
                 text: "Group by Tape/DVD";
+                font-size: 18px;
                 toggled => {
                     root.set_group_by_support(self.checked);
                     update_search(searchLineEdit.text); // much easier than doing this in rust ;)
