@@ -1,6 +1,6 @@
 # Video Finder
 
-An application for finding videos in a database; mostly written as a learning experience
+A personal application for finding videos in a database.
 
 ## About
 
@@ -8,7 +8,7 @@ A Rust application that's using [Slint](https://slint.rs/) for the user interfac
 
 ## Compiling
 
-### Building on Android directly
+### Building on an Android tablet directly
 
 First, follow the steps at https://github.com/dfaure/rust-android-hello-world
 In addition, this project requires:
@@ -22,4 +22,4 @@ compiling native code  that links against standard C libraries. In this project'
 
 ## Usage
 
-Reserved to the author and his wife ;-)
+Only meaningful to the author and his wife, move along ;-)
