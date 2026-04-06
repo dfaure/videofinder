@@ -65,28 +65,34 @@ export component AppWindow inherits Window {
     callback item-clicked(int, int); // film code, support code
     callback notify_details_window_closed();
 
+    function update_search(text : string) {
+        if text.character-count > 1 {
+             root.search(text);
+        }
+    }
+
     VerticalLayout {
         HorizontalLayout {
             searchLineEdit := LineEdit {
                 placeholder-text: @tr("Enter search string");
-                accepted(text) => {
-                    root.search(text);
+                edited(text) => { // was accepted, but this way we don't need a search button
+                    update_search(text);
                 }
             }
-            Button {
+            /*Button {
                 icon: @image-url("icons/search.svg");
                 icon-size: 40px;
                 colorize-icon: true;
                 clicked => {
                     root.search(searchLineEdit.text);
                 }
-            }
+            }*/
             CheckBox {
                 checked: true;
                 text: "Group by Tape/DVD";
                 toggled => {
                     root.set_group_by_support(self.checked);
-                    root.search(searchLineEdit.text); // much easier than doing this in rust ;)
+                    update_search(searchLineEdit.text); // much easier than doing this in rust ;)
                 }
             }
         }
