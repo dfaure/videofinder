@@ -1,4 +1,4 @@
-import { Button, HorizontalBox, LineEdit, ListView, ProgressIndicator, StandardListView, VerticalBox, CheckBox } from "std-widgets.slint";
+import { Button, LineEdit, ListView, ProgressIndicator, StandardListView, CheckBox } from "std-widgets.slint";
 import { DetailsWindow } from "details-window.slint";
 import { RecordWrapper } from "record-wrapper.slint";
 
@@ -14,7 +14,7 @@ component ResultItemDisplay {
     in property <ResultItemData> data;
     callback clicked <=> touchArea.clicked;
 
-    HorizontalBox {
+    HorizontalLayout {
         padding: 0px;
         spacing: 5px; // Space between icon and text
         Rectangle {
@@ -65,8 +65,8 @@ export component AppWindow inherits Window {
     callback item-clicked(int, int); // film code, support code
     callback notify_details_window_closed();
 
-    VerticalBox {
-        HorizontalBox {
+    VerticalLayout {
+        HorizontalLayout {
             searchLineEdit := LineEdit {
                 placeholder-text: @tr("Enter search string");
                 accepted(text) => {
