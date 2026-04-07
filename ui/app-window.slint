@@ -1,4 +1,4 @@
-import { Button, LineEdit, ListView, ProgressIndicator, StandardListView, CheckBox } from "std-widgets.slint";
+import { Button, LineEdit, ListView, ProgressIndicator, StandardListView, VerticalBox, CheckBox } from "std-widgets.slint";
 import { DetailsWindow } from "details-window.slint";
 import { RecordWrapper } from "record-wrapper.slint";
 
@@ -71,13 +71,14 @@ export component AppWindow inherits Window {
         }
     }
 
-    VerticalLayout {
-        HorizontalLayout {
+    VerticalBox {
+        //HorizontalLayout {
             searchLineEdit := LineEdit {
                 placeholder-text: @tr("Enter search string");
                 edited(text) => { // was accepted, but this way we don't need a search button
                     update_search(text);
                 }
+                font-size: 30px;
             }
             /*Button {
                 icon: @image-url("icons/search.svg");
@@ -87,14 +88,13 @@ export component AppWindow inherits Window {
                     root.search(searchLineEdit.text);
                 }
             }*/
-            CheckBox {
-                checked: true;
-                text: "Group by Tape/DVD";
-                font-size: 18px;
-                toggled => {
-                    root.set_group_by_support(self.checked);
-                    update_search(searchLineEdit.text); // much easier than doing this in rust ;)
-                }
+        //}
+        CheckBox {
+            checked: true;
+            text: "Group by Tape/DVD";
+            toggled => {
+                root.set_group_by_support(self.checked);
+                update_search(searchLineEdit.text); // much easier than doing this in rust ;)
             }
         }
         if searchLineEdit.text.is-empty : VerticalLayout {
