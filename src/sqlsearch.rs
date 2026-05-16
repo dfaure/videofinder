@@ -131,7 +131,7 @@ pub fn sqlite_get_record(
     let conn =
         Connection::open_with_flags(download::db_full_path(), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     let mut support_query = conn.prepare(
-        "SELECT type, shelf, row, position, location, path FROM Tape WHERE Tape.code_tape=?1",
+        "SELECT type, shelf, row, position, location, path, duration FROM Tape WHERE Tape.code_tape=?1",
     )?;
     log::info!("Doing support query for support code {}", support_code);
     let mut record_wrapper = support_query.query_row([support_code], |row| {
@@ -143,9 +143,12 @@ pub fn sqlite_get_record(
             position: row.get(3)?,
             location: row.get::<_, String>(4)?.into(),
             path: row.get::<_, String>(5).unwrap_or(String::new()).into(),
+            // For HDD/ComputerFile rows the Tape table carries the duration
+            // (set by the scan script from the filename); for other supports
+            // it's overwritten below from Film.duration.
+            duration: row.get(6).unwrap_or(0),
             // these will be set further below
             film_code: 0,
-            duration: 0,
             year: 0,
             actors: [].into(),
         })
