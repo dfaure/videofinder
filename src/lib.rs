@@ -11,6 +11,7 @@ use std::time::Instant;
 mod download;
 mod enums;
 mod image_handling;
+mod merge;
 mod sqlsearch;
 
 use crate::download::ImageForDirHash;

@@ -13,11 +13,25 @@ fn db_dir() -> PathBuf {
     }
 }
 
-fn db_fname() -> &'static str {
-    "kvideomanager.sqlite"
+/// HDDs whose JSONL slices should be merged into the queryable DB.
+/// Each name must match the LOCATION label produced by scripts/scan_hdd.py
+/// (derived from the HDD's `id` file). The corresponding files on the FTP
+/// server are `<NAME>.jsonl`, served alongside kvideomanager.sqlite.
+pub const HDD_NAMES: &[&str] = &["ELORA_1", "ELORA_2", "ELORA_3"];
+
+/// Path to the Qt-curated source DB (downloaded as-is from FTP).
+pub fn qt_db_full_path() -> PathBuf {
+    db_dir().join("kvideomanager.sqlite")
 }
+
+/// Path to the merged DB that videofinder actually queries. Produced by
+/// merging the Qt source DB with the per-HDD JSONL slices.
 pub fn db_full_path() -> PathBuf {
-    db_dir().join(db_fname())
+    db_dir().join("merged.sqlite")
+}
+
+pub fn jsonl_full_path(hdd_name: &str) -> PathBuf {
+    db_dir().join(format!("{}.jsonl", hdd_name))
 }
 
 pub fn filelist_full_path() -> PathBuf {
@@ -81,6 +95,8 @@ pub fn parse_file_list() -> Result<ImageForDirHash, anyhow::Error> {
     Ok(hash)
 }
 
+const BASE_URL: &str = "http://www.davidfaure.fr/kvideomanager";
+
 pub async fn download_db(progress_func: Box<ProgressFunc>) -> Result<(), anyhow::Error> {
     log::info!("download_db begin");
     let target_dir = db_dir();
@@ -89,14 +105,31 @@ pub async fn download_db(progress_func: Box<ProgressFunc>) -> Result<(), anyhow:
         log::warn!("Local dir does not exist: {}", target_dir.display());
         anyhow::bail!(error_msg);
     }
-    let url = "http://www.davidfaure.fr/kvideomanager/kvideomanager.sqlite";
-    let file_path = db_full_path();
-    download_to_file(url, file_path, progress_func).await?;
 
-    let filelist_url = "http://www.davidfaure.fr/kvideomanager/kvideomanager.filelist.txt";
+    // Progress is only wired to the (much larger) Qt DB download; the JSONL
+    // files are kilobytes each, so we don't bother reporting their progress.
+    let qt_url = format!("{}/kvideomanager.sqlite", BASE_URL);
+    let qt_path = qt_db_full_path();
+    download_to_file(&qt_url, qt_path.clone(), progress_func).await?;
+
+    let filelist_url = format!("{}/kvideomanager.filelist.txt", BASE_URL);
     let dummy_fn = Box::new(|_| {});
-    let file_list_path = filelist_full_path();
-    download_to_file(filelist_url, file_list_path, dummy_fn).await
+    download_to_file(&filelist_url, filelist_full_path(), dummy_fn).await?;
+
+    // HDD slices: download each one, but a missing/unreachable file just
+    // produces a warning — the merge step will skip whatever isn't present.
+    let mut jsonl_paths: Vec<PathBuf> = Vec::new();
+    for hdd in HDD_NAMES {
+        let url = format!("{}/{}.jsonl", BASE_URL, hdd);
+        let path = jsonl_full_path(hdd);
+        match download_to_file(&url, path.clone(), Box::new(|_| {})).await {
+            Ok(()) => jsonl_paths.push(path),
+            Err(e) => log::warn!("Failed to download {}: {}", url, e),
+        }
+    }
+
+    crate::merge::merge(&qt_path, &jsonl_paths, &db_full_path())?;
+    Ok(())
 }
 
 use slint::Image;

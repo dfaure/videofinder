@@ -86,8 +86,16 @@ export component DetailsWindow inherits PopupWindow {
                     text: @tr("Year: {}", (root.record.year > 0 ? root.record.year : "-"));
                 }
                 Text {
-                    visible: root.record.film_code != 0;
-                    text: @tr("Duration: {}", (root.record.duration > 0 ? root.record.duration + " min" : "-"));
+                    // ComputerFile records carry their duration on the Tape row
+                    // itself, so the field should appear even when no Film is linked.
+                    visible: root.record.film_code != 0 || root.record.isComputerFile;
+                    text: root.record.duration > 0
+                        ? @tr("Duration: {}h{}{} ({} min)",
+                              floor(root.record.duration / 60),
+                              mod(root.record.duration, 60) < 10 ? "0" : "",
+                              mod(root.record.duration, 60),
+                              root.record.duration)
+                        : @tr("Duration: -");
                 }
 
 
