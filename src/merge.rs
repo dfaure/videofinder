@@ -45,13 +45,13 @@ pub fn merge(
 
     let mut conn = Connection::open(merged_db).context("opening merged DB")?;
 
-    let mut next_code: i32 = conn
-        .query_row("SELECT COALESCE(MAX(CODE_TAPE), 0) + 1 FROM Tape", [], |row| row.get(0))
-        .context("reading max CODE_TAPE")?;
-
     let tx = conn.transaction().context("starting transaction")?;
     let mut inserted: usize = 0;
     {
+        let mut next_code: i32 = tx
+            .query_row("SELECT COALESCE(MAX(CODE_TAPE), 0) + 1 FROM Tape", [], |row| row.get(0))
+            .context("reading max CODE_TAPE")?;
+
         let mut stmt = tx.prepare(
             "INSERT INTO Tape \
                (CODE_TAPE, TITLE, LOCATION, SHELF, ROW, POSITION, PATH, TYPE, DATE_PURCHASE, DURATION) \
